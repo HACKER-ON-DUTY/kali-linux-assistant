@@ -1,3 +1,5 @@
+[![GitHub Stars](https://img.shields.io/github/stars/HACKER-ON-DUTY/kali-linux-assistant)](https://github.com/HACKER-ON-DUTY/kali-linux-assistant) ![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red)
+
 # Hey Kali — Offline-First Hybrid Voice Assistant for Kali Linux
 
 **Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 113 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
@@ -26,10 +28,10 @@ sudo apt update && sudo apt install -y python3-venv python3-pyaudio portaudio19-
 
 ## Installation & Setup
 ```bash
-git clone https://github.com/HACKER-ON-DUTY/hey-kali.git
-cd hey-kali
+git clone https://github.com/HACKER-ON-DUTY/kali-linux-assistant.git
+cd kali-linux-assistant
 python3 -m venv venv
-./venv/bin/pip install -r requirements.txt
+bash install.sh
 ```
 Download a Piper voice model (e.g. `en_GB-alan-low.onnx` + `.onnx.json`) into `voices/`, install Ollama (`ollama pull gemma3:1b`) for local LLM queries, and start the assistant:
 ```bash
