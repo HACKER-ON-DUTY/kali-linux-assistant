@@ -11,7 +11,7 @@
   - `"Hey Kali, revert mode"` — Restores default `Kali-Dark` desktop theme, icons, wallpaper slideshow, windows, and audio levels.
 - **Ordinal Bluetooth Control & OBEX File Transfer**:
   - `"Hey Kali, connect to first/second/third bluetooth device"`
-  - `"Hey Kali, send <filename> to first/second/third bluetooth"`
+  - `"Hey Kali, send <filename> to my phone"` / `"send <filename> to first/second/third bluetooth"`
 - **Cursor Dictation (`write` / `andika`)**:
   - `"Hey Kali, write <text>"` or `"Hey Kali, write <text> and press enter"` types directly at your active X11 cursor via `xdotool`.
 - **Smart Multi-Action `"and"` Chaining**:

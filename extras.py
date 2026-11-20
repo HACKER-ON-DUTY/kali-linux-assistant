@@ -21,7 +21,7 @@ import json, urllib.request
 import base64, hashlib, shutil
 import datetime, os, re, shutil, subprocess, urllib.parse
 
-HOME = "/home/hacker"
+HOME = os.path.expanduser("~")
 
 def _play_youtube_direct(search_query, launch_gui):
     def _bg_open():
@@ -2783,45 +2783,58 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak("Focus mode activated. Audio muted, browser closed, and terminal ready.")
         return True
 
-    # Bluetooth File/Image/Video Sender ("send <file> to first/second/third bluetooth", "send <file> to my phone")
+    # Bluetooth File/Image/Video Sender ("send <file> to my phone", "send <file> to first/second/third bluetooth")
     m_bt_send = re.search(r"\bsend\b\s+(?:the\s+|file\s+|image\s+|photo\s+|picture\s+|video\s+)?(.+?)\s+\b(?:to\s+(?:the\s+|my\s+)?(?:(first|1st|one|1|second|2nd|two|2|third|3rd|three|3|fourth|4th|four|4|fifth|5th|five|5)\s+)?(?:blue\s*tooth(?:\s+device)?|phone|device)|(?:via|on)\s+blue\s*tooth)\b", q.replace("fast", "first"))
     if m_bt_send:
         target_part = m_bt_send.group(1).strip()
         bt_ord_word = (m_bt_send.group(2) or "").strip()
         chosen_file = ""
-        search_dirs = [f"{HOME}/Desktop", f"{HOME}/Downloads", f"{HOME}/Pictures", f"{HOME}/Pictures/intruders", f"{HOME}/Videos", f"{HOME}/Documents", f"{HOME}/hey-kali", HOME]
+        search_dirs = [f"{HOME}/Desktop", f"{HOME}/Downloads", f"{HOME}/Pictures", f"{HOME}/Pictures/intruders", f"{HOME}/Videos", f"{HOME}/Documents", f"{HOME}/hey-kali", f"{HOME}/kali-linux-assistant", HOME]
         if any(w in target_part for w in ("recent", "latest", "last")):
             exts = (".jpg", ".jpeg", ".png", ".webp", ".gif") if any(w in target_part for w in ("picture", "photo", "image")) else ((".mp4", ".mkv", ".webm", ".mov") if any(w in target_part for w in ("video", "recording", "mp4")) else ())
             cands = [os.path.join(d, fn) for d in search_dirs if os.path.isdir(d) for fn in os.listdir(d) if os.path.isfile(os.path.join(d, fn)) and (not exts or fn.lower().endswith(exts))]
-            if cands: chosen_file = max(cands, key=os.path.getmtime)
+            if cands:
+                chosen_file = max(cands, key=os.path.getmtime)
         elif target_part in ("this", "what i copied", "copied file", "my clipboard", "it") and shutil.which("xclip"):
             uri_raw = subprocess.run(["xclip", "-o", "-selection", "clipboard", "-t", "text/uri-list"], env=_rt_env, capture_output=True, text=True).stdout.strip()
             for line in uri_raw.splitlines():
                 if line.strip().startswith("file://") and os.path.isfile(urllib.parse.unquote(line.strip()[7:])):
-                    chosen_file = urllib.parse.unquote(line.strip()[7:]); break
+                    chosen_file = urllib.parse.unquote(line.strip()[7:])
+                    break
         if not chosen_file and target_part:
             clean_q = target_part.replace(" dot ", ".").lower()
             matches = [os.path.join(d, fn) for d in search_dirs if os.path.isdir(d) for fn in os.listdir(d) if os.path.isfile(os.path.join(d, fn)) and clean_q in fn.lower()]
-            if matches: chosen_file = max(matches, key=os.path.getmtime)
+            if matches:
+                chosen_file = max(matches, key=os.path.getmtime)
         if not chosen_file or not os.path.exists(chosen_file):
-            speak(f"I could not find a file matching {target_part}."); return True
+            speak(f"I could not find a file matching {target_part}.")
+            return True
+        if not shutil.which("obexftp") and not shutil.which("bluetooth-sendto"):
+            speak("Bluetooth file transfer tools are not installed. Please install obexftp or bluez-obexd.")
+            return True
         subprocess.run(["rfkill", "unblock", "bluetooth"], env=_rt_env, capture_output=True)
         subprocess.run(["bluetoothctl", "power", "on"], env=_rt_env, capture_output=True)
-        send_idx = {"first":0,"1st":0,"one":0,"1":0,"second":1,"2nd":1,"two":1,"2":1,"third":2,"3rd":2,"three":2,"3":2,"fourth":3,"4th":3,"four":3,"4":3,"fifth":4,"5th":4,"five":4,"5":4}.get(bt_ord_word, None)
+        send_idx = {"first": 0, "1st": 0, "one": 0, "1": 0, "second": 1, "2nd": 1, "two": 1, "2": 1, "third": 2, "3rd": 2, "three": 2, "3": 2, "fourth": 3, "4th": 3, "four": 3, "4": 3, "fifth": 4, "5th": 4, "five": 4, "5": 4}.get(bt_ord_word, None)
         devs = subprocess.run(["bluetoothctl", "devices"], env=_rt_env, capture_output=True, text=True).stdout
-        p_devs = [(pts.strip(), pts.strip() if len(pts) >= 3 else pts.strip()) for line in devs.splitlines() for pts in [line.split(" ", 2)] if len(pts) >= 2 and pts == "Device"]
-        bt_mac, bt_dev_name = "", "your Bluetooth device"
+        p_devs = [(pts[1].strip(), pts[2].strip() if len(pts) >= 3 else pts[1].strip()) for line in devs.splitlines() for pts in [line.split(" ", 2)] if len(pts) >= 2 and pts[0] == "Device"]
+        if not p_devs:
+            speak("Could not find any paired Bluetooth device.")
+            return True
         if send_idx is not None:
-            if 0 <= send_idx < len(p_devs): bt_mac, bt_dev_name = p_devs[send_idx]
-            else: speak(f"Bluetooth device number {send_idx + 1} was not found."); return True
+            if 0 <= send_idx < len(p_devs):
+                bt_mac, bt_dev_name = p_devs[send_idx]
+            else:
+                speak(f"Bluetooth device number {send_idx + 1} was not found.")
+                return True
         else:
-            bt_mac, bt_dev_name = next(((m, n) for m, n in p_devs if "gamer" in n.lower()), p_devs if p_devs else ("", ""))
-        if not bt_mac: speak("Could not find any paired Bluetooth device."); return True
+            bt_mac, bt_dev_name = p_devs[0]
         speak(f"Sending {os.path.basename(chosen_file)} to {bt_dev_name} via Bluetooth now.")
         def _push_bt(f_path, mac_addr):
+            sent_ok = False
             if shutil.which("obexftp"):
-                subprocess.run(["obexftp", "--nopath", "--noconn", "--uuid", "none", "--bluetooth", mac_addr, "--channel", "12", "-p", f_path], timeout=30)
-            elif shutil.which("bluetooth-sendto"):
+                res = subprocess.run(["obexftp", "--nopath", "--noconn", "--uuid", "none", "--bluetooth", mac_addr, "--channel", "12", "-p", f_path], capture_output=True, timeout=30)
+                sent_ok = (res.returncode == 0)
+            if not sent_ok and shutil.which("bluetooth-sendto"):
                 subprocess.Popen(["bluetooth-sendto", f"--device={mac_addr}", f_path], env=_rt_env)
         threading.Thread(target=_push_bt, args=(chosen_file, bt_mac), daemon=True).start()
         return True

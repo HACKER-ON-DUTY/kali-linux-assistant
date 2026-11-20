@@ -29,7 +29,7 @@ GUI_ENV.setdefault("DISPLAY", ":0")
 GUI_ENV.setdefault("XAUTHORITY", "/home/hacker/.Xauthority")
 GUI_ENV.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
 
-HOME = "/home/hacker"
+HOME = os.path.expanduser("~")
 CODE_FILE, CMD_FILE = f"{HOME}/hey-kali/last_code.txt", f"{HOME}/hey-kali/last_command.txt"
 
 vosk_model = Model(model_name="vosk-model-small-en-us-0.15")
