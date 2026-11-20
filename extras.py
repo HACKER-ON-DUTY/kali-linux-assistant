@@ -2715,8 +2715,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
             for _pr in subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-l"], env=_rt_env, capture_output=True, text=True).stdout.splitlines():
                 if _pr.endswith("backdrop-cycle-enable"):
                     subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "false"], env=_rt_env, capture_output=True)
-                elif _pr.endswith(("last-image", "image-path")) and os.path.isfile("/home/hacker/hey-kali/backtrack_wallpaper.png"):
-                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "/home/hacker/hey-kali/backtrack_wallpaper.png"], env=_rt_env, capture_output=True)
+                elif _pr.endswith(("last-image", "image-path")) and os.path.isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtrack_wallpaper.png")):
+                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtrack_wallpaper.png")], env=_rt_env, capture_output=True)
             subprocess.run(["xfdesktop", "--reload"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "Kali-Red-Dark"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Flat-Remix-Red-Dark"], env=_rt_env, capture_output=True)

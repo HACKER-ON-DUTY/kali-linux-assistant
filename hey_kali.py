@@ -11,7 +11,7 @@ if _os_lock.path.exists(_LOCK_FILE):
 open(_LOCK_FILE, "w").write(str(_os_lock.getpid()))
 
 try:
-    import sys as _sys_ext; _sys_ext.path.insert(0, "/home/hacker/hey-kali")
+    import sys as _sys_ext; _sys_ext.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from extras import handle_extra
 except Exception as _ext_err:
     print(f'[extras import error] {_ext_err}', flush=True)
