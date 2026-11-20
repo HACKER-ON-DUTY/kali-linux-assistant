@@ -38,5 +38,14 @@ Download a Piper voice model (e.g. `en_GB-alan-low.onnx` + `.onnx.json`) into `v
 ./venv/bin/python3 hey_kali.py
 ```
 
+## Use Cases & Related Search Keywords
+
+Looking for a **Kali Linux Assistant**, **Kali Linux Jarvis**, or **offline Linux voice assistant in Python**? This project covers:
+- **Kali Linux & Jarvis Voice Control**: `kali linux assistant`, `kali linux voice assistant`, `kali linux ai assistant`, `hey kali`, `hey kali assistant`, `hey kali voice assistant`, `kali linux jarvis`, `jarvis for kali linux`, `ai assistant for kali linux`, `voice control kali linux`, `offline voice assistant kali linux`, `kali linux desktop automation`
+- **Offline Speech & Local LLM**: `offline linux voice assistant python`, `vosk whisper piper voice assistant`, `vosk wake word linux`, `piper tts voice assistant linux`, `ollama voice assistant linux`, `gemma voice assistant python`, `local ai voice assistant linux`, `privacy focused voice assistant linux`, `hands free linux control python`, `xfce voice assistant`, `debian voice assistant python`, `python speech recognition linux automation`
+- **Cybersecurity, Pentesting & OSINT**: `ai pentesting assistant kali`, `voice controlled osint tool`, `kali linux osint automation`, `voice activated nmap wireshark`, `cybersecurity voice assistant`, `ethical hacking ai assistant`, `hacker voice assistant python`, `kali linux workflow automation`, `automated osint report generator python`, `kali linux recon mode`, `kali linux hacker mode`, `hands free pentesting kali`
+- **BackTrack 3 Theme & Desktop Ricing**: `backtrack 3 theme kali linux`, `kali linux backtrack mode`, `kali red dark theme switcher`, `xfce theme switcher script`, `kali linux hacker theme automation`, `backtrack wallpaper kali linux`, `kali linux focus mode script`, `kali linux chill mode`, `xfce workspace profile switcher`, `kali linux desktop ricing automation`
+- **Bluetooth OBEX, X11 Dictation & Linux Utilities**: `linux voice bluetooth file transfer`, `send file to phone via bluetooth linux cli`, `obexftp python automation`, `bluetoothctl python voice control`, `connect bluetooth device by voice linux`, `linux voice dictation xdotool`, `voice typing x11 linux python`, `swahili english voice dictation linux`, `andika voice typing linux`, `multi command voice chaining python`, `linux clipboard error fixer ai`, `voice controlled terminal commands linux`, `systemd user voice assistant service`, `HACKER-ON-DUTY kali-linux-assistant`
+
 ## Disclaimer & Rules of Use
 This tool is intended strictly for **authorized security administration, educational labs, and personal desktop automation**. Users are solely responsible for complying with applicable local laws when using network scanning or OSINT modules.
