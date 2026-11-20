@@ -1,6 +1,6 @@
 [![GitHub Stars](https://img.shields.io/github/stars/HACKER-ON-DUTY/kali-linux-assistant)](https://github.com/HACKER-ON-DUTY/kali-linux-assistant) ![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red)
 
-# Hey Kali — Offline-First Hybrid Voice Assistant for Kali Linux
+# Kali Linux Assistant (Hey Kali) — Offline-First Hybrid AI Voice Assistant for Kali Linux
 
 **Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 113 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
 
