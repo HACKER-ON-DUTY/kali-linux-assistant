@@ -26,7 +26,7 @@ sudo apt update && sudo apt install -y python3-venv python3-pyaudio portaudio19-
 
 ## Installation & Setup
 ```bash
-git clone https://github.com
+git clone https://github.com/HACKER-ON-DUTY/hey-kali.git
 cd hey-kali
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
