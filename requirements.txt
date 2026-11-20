@@ -1,0 +1,8 @@
+vosk
+faster-whisper
+SpeechRecognition
+pyaudio
+numpy
+piper-tts
+requests
+beautifulsoup4
