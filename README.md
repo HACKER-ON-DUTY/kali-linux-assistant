@@ -28,7 +28,7 @@ sudo apt update && sudo apt install -y python3-venv python3-pyaudio portaudio19-
 
 ## Installation & Setup
 ```bash
-git clone https://github.com/HACKER-ON-DUTY/kali-linux-assistant.git
+git clone https://github.com/TECH-ON-DUTY/kali-linux-assistant.git
 cd kali-linux-assistant
 python3 -m venv venv
 bash install.sh
