@@ -2596,6 +2596,29 @@ def handle_extra(query, speak, launch_gui, gui_env):
         open(net_flag, "w").write("1")
         speak("Network watchdog started. I will tell you when someone joins the network.")
 
+        def _resolve_device_name(ip_a, vendor):
+            # 1. Try mDNS / Avahi hostname (catches Infinix, Samsung, iPhone names)
+            if shutil.which("avahi-resolve"):
+                av = subprocess.run(["avahi-resolve", "-a", ip_a], capture_output=True, text=True, timeout=3).stdout.strip()
+                if av and len(av.split()) >= 2:
+                    hn = av.split().pop().rstrip(".")
+                    if hn.endswith(".local"):
+                        hn = hn[:-6]
+                    if hn and hn != ip_a:
+                        return hn.replace("-", " ")
+            # 2. Try reverse DNS
+            try:
+                import socket as _sock
+                h = _sock.gethostbyaddr(ip_a).pop(0)
+                if h and h != ip_a:
+                    return h.split(".").pop(0).replace("-", " ")
+            except Exception:
+                pass
+            # 3. Clean vendor fallback (Transsion OUI covers Infinix/Tecno/itel)
+            if "tecno" in vendor.lower():
+                return "Infinix or Tecno phone"
+            return vendor
+
         def _scan_lan_devices():
             found = {}
             route_out = subprocess.run(["ip", "-o", "-4", "route", "show", "to", "default"], capture_output=True, text=True).stdout.strip()
@@ -2633,27 +2656,33 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return found
 
         def _arp_watch():
-            known_macs = _scan_lan_devices()
+            active_macs = _scan_lan_devices()
+            missed_counts = {}
             while os.path.exists(net_flag):
-                time.sleep(10)
+                time.sleep(8)
                 if not os.path.exists(net_flag):
                     break
                 try:
                     cur_devs = _scan_lan_devices()
                 except Exception:
                     continue
+
+                # Forget devices that disconnected for 2 consecutive scans (~16s) so reconnects alert again
+                for old_mac in list(active_macs.keys()):
+                    if old_mac not in cur_devs:
+                        missed_counts[old_mac] = missed_counts.get(old_mac, 0) + 1
+                        if missed_counts[old_mac] >= 2:
+                            del active_macs[old_mac]
+                            del missed_counts[old_mac]
+                    else:
+                        missed_counts[old_mac] = 0
+
+                # Alert whenever a new or reconnecting device joins
                 for mac_a, (ip_a, vendor) in cur_devs.items():
-                    if mac_a not in known_macs:
-                        known_macs[mac_a] = (ip_a, vendor)
-                        host_name = ""
-                        try:
-                            import socket as _sock
-                            h = _sock.gethostbyaddr(ip_a).pop(0)
-                            if h and h != ip_a:
-                                host_name = h.split(".").pop(0)
-                        except Exception:
-                            pass
-                        dev_label = host_name or vendor
+                    if mac_a not in active_macs:
+                        active_macs[mac_a] = (ip_a, vendor)
+                        missed_counts[mac_a] = 0
+                        dev_label = _resolve_device_name(ip_a, vendor)
                         if dev_label:
                             msg = f"Someone has joined the network: {dev_label} at {ip_a}."
                         else:
