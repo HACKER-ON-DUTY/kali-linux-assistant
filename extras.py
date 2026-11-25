@@ -2596,8 +2596,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
         open(net_flag, "w").write("1")
         speak("Network watchdog started. I will tell you when someone joins the network.")
 
-        def _resolve_device_name(ip_a, vendor):
-            # 1. Try mDNS / Avahi hostname (catches Infinix, Samsung, iPhone names)
+        def _resolve_device_name(ip_a, vendor, mac_a=""):
+            # 1. Try mDNS / Avahi hostname
             if shutil.which("avahi-resolve"):
                 av = subprocess.run(["avahi-resolve", "-a", ip_a], capture_output=True, text=True, timeout=3).stdout.strip()
                 if av and len(av.split()) >= 2:
@@ -2605,8 +2605,16 @@ def handle_extra(query, speak, launch_gui, gui_env):
                     if hn.endswith(".local"):
                         hn = hn[:-6]
                     if hn and hn != ip_a:
-                        return hn.replace("-", " ")
-            # 2. Try reverse DNS
+                        return hn.replace("-", " ").replace("_", " ")
+            # 2. Try NetBIOS / Samba name lookup (catches Windows & some Android devices)
+            if shutil.which("nmblookup"):
+                nb = subprocess.run(["nmblookup", "-A", ip_a], capture_output=True, text=True, timeout=3).stdout
+                for line in nb.splitlines():
+                    if "<00>" in line and "<GROUP>" not in line:
+                        n_name = line.split().pop(0).strip()
+                        if n_name and n_name != ip_a:
+                            return n_name.replace("-", " ")
+            # 3. Try reverse DNS
             try:
                 import socket as _sock
                 h = _sock.gethostbyaddr(ip_a).pop(0)
@@ -2614,10 +2622,27 @@ def handle_extra(query, speak, launch_gui, gui_env):
                     return h.split(".").pop(0).replace("-", " ")
             except Exception:
                 pass
-            # 3. Clean vendor fallback (Transsion OUI covers Infinix/Tecno/itel)
-            if "tecno" in vendor.lower():
+            # 4. Friendly hardware brand mapping when real OUI MAC is visible
+            v_low = (vendor or "").lower()
+            if "xiaomi" in v_low or "redmi" in v_low:
+                return "Redmi or Xiaomi phone"
+            if "tecno" in v_low or "infinix" in v_low or "transsion" in v_low:
                 return "Infinix or Tecno phone"
-            return vendor
+            if "samsung" in v_low:
+                return "Samsung device"
+            if "apple" in v_low:
+                return "iPhone or Apple device"
+            if "huawei" in v_low:
+                return "Huawei device"
+            if "oppo" in v_low or "realme" in v_low or "oneplus" in v_low:
+                return "Oppo or Realme phone"
+            if vendor:
+                return vendor
+            # 5. Check if phone is using Android/iOS Randomized Private MAC (2nd hex digit is 2, 6, a, or e)
+            clean_mac = mac_a.replace(":", "").lower()
+            if len(clean_mac) >= 2 and clean_mac[1] in ("2", "6", "a", "e"):
+                return "a mobile phone (private MAC)"
+            return ""
 
         def _scan_lan_devices():
             found = {}
@@ -2682,7 +2707,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                     if mac_a not in active_macs:
                         active_macs[mac_a] = (ip_a, vendor)
                         missed_counts[mac_a] = 0
-                        dev_label = _resolve_device_name(ip_a, vendor)
+                        dev_label = _resolve_device_name(ip_a, vendor, mac_a)
                         if dev_label:
                             msg = f"Someone has joined the network: {dev_label} at {ip_a}."
                         else:
