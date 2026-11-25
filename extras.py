@@ -2599,21 +2599,27 @@ def handle_extra(query, speak, launch_gui, gui_env):
         def _resolve_device_name(ip_a, vendor, mac_a=""):
             # 1. Try mDNS / Avahi hostname
             if shutil.which("avahi-resolve"):
-                av = subprocess.run(["avahi-resolve", "-a", ip_a], capture_output=True, text=True, timeout=3).stdout.strip()
-                if av and len(av.split()) >= 2:
-                    hn = av.split().pop().rstrip(".")
-                    if hn.endswith(".local"):
-                        hn = hn[:-6]
-                    if hn and hn != ip_a:
-                        return hn.replace("-", " ").replace("_", " ")
+                try:
+                    av = subprocess.run(["avahi-resolve", "-a", ip_a], capture_output=True, text=True, timeout=2).stdout.strip()
+                    if av and len(av.split()) >= 2:
+                        hn = av.split().pop().rstrip(".")
+                        if hn.endswith(".local"):
+                            hn = hn[:-6]
+                        if hn and hn != ip_a:
+                            return hn.replace("-", " ").replace("_", " ")
+                except Exception:
+                    pass
             # 2. Try NetBIOS / Samba name lookup (catches Windows & some Android devices)
             if shutil.which("nmblookup"):
-                nb = subprocess.run(["nmblookup", "-A", ip_a], capture_output=True, text=True, timeout=3).stdout
-                for line in nb.splitlines():
-                    if "<00>" in line and "<GROUP>" not in line:
-                        n_name = line.split().pop(0).strip()
-                        if n_name and n_name != ip_a:
-                            return n_name.replace("-", " ")
+                try:
+                    nb = subprocess.run(["nmblookup", "-A", ip_a], capture_output=True, text=True, timeout=2).stdout
+                    for line in nb.splitlines():
+                        if "<00>" in line and "<GROUP>" not in line:
+                            n_name = line.split().pop(0).strip()
+                            if n_name and n_name != ip_a:
+                                return n_name.replace("-", " ")
+                except Exception:
+                    pass
             # 3. Try reverse DNS
             try:
                 import socket as _sock
