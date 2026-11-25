@@ -2956,6 +2956,78 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak("Focus mode activated. Audio muted, browser closed, and terminal ready.")
         return True
 
+    # Voice Web & Subdomain Recon ("web recon <domain>", "enumerate <domain>", "fingerprint <domain>")
+    m_web = re.search(r"^(?:web\s+recon|web\s+scan|enumerate|subdomain\s+scan|fingerprint|tech\s+stack)\s+(?:on\s+|of\s+|for\s+|target\s+|website\s+|domain\s+)?(.+)$", q)
+    if m_web:
+        raw_d = m_web.group(1).strip(" .?!")
+        dom = re.sub(r"\s+dot\s+", ".", raw_d, flags=re.I)
+        dom = re.sub(r"^https?://", "", dom).split("/").pop(0).strip()
+        dom = re.sub(r"[^a-zA-Z0-9.\-]", "", dom)
+        if not dom or "." not in dom:
+            speak("Please specify a valid domain name for web recon.")
+            return True
+
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
+
+        speak(f"Starting web technology and subdomain recon on {dom}.")
+        def _bg_webrecon(domain):
+            try:
+                os.makedirs(os.path.join(HOME, "Desktop"), exist_ok=True)
+                tech_summary = ""
+                ww_out = ""
+                if shutil.which("whatweb"):
+                    ww_res = subprocess.run(["whatweb", "--color=never", "-a", "1", domain], capture_output=True, text=True, timeout=30)
+                    ww_out = (ww_res.stdout or ww_res.stderr).strip()
+                    # Extract bracketed technologies e.g. [Apache][PHP][Country]
+                    tags = re.findall(r"\[([^\]]+)\]", ww_out)
+                    clean_tags = [t for t in tags if not t.startswith(("200 ", "301 ", "302 ", "IP", "Country"))]
+                    if clean_tags:
+                        tech_summary = ", ".join(clean_tags[:6])
+
+                # Passive subdomain enumeration via crt.sh Certificate Transparency
+                subs = set()
+                try:
+                    r = _HTTP.get(f"https://crt.sh.{domain}&output=json", timeout=15)
+                    if r.status_code == 200:
+                        for entry in r.json():
+                            for name in str(entry.get("name_value", "")).splitlines():
+                                name = name.strip().lower().lstrip("*.")
+                                if name.endswith(domain.lower()) and name != domain.lower():
+                                    subs.add(name)
+                except Exception:
+                    pass
+
+                sorted_subs = sorted(subs)
+                safe_d = re.sub(r"[^a-zA-Z0-9._-]", "_", domain)
+                rep_file = os.path.join(HOME, "Desktop", f"webrecon_{safe_d}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+                report_txt = (
+                    f"=== HEY KALI WEB & SUBDOMAIN RECON: {domain} ===\n\n"
+                    f"--- WHATWEB TECH FINGERPRINT ---\n{ww_out or 'whatweb not installed or no HTTP response'}\n\n"
+                    f"--- DISCOVERED SUBDOMAINS ({len(sorted_subs)}) ---\n"
+                    + ("\n".join(sorted_subs) if sorted_subs else "No public subdomains found via Certificate Transparency.")
+                    + "\n"
+                )
+                open(rep_file, "w").write(report_txt)
+
+                if tech_summary and sorted_subs:
+                    speak(f"Web recon complete for {domain}. Detected {tech_summary}, and found {len(sorted_subs)} subdomains. Report saved to Desktop.")
+                elif tech_summary:
+                    speak(f"Web recon complete for {domain}. Detected {tech_summary}. Report saved to Desktop.")
+                elif sorted_subs:
+                    speak(f"Web recon complete for {domain}. Found {len(sorted_subs)} subdomains. Report saved to Desktop.")
+                else:
+                    speak(f"Web recon finished for {domain}. Report saved to Desktop.")
+
+                if shutil.which("zenity"):
+                    launch_gui(["zenity", "--text-info", f"--title=Web Recon: {domain}", f"--filename={rep_file}", "--width=780", "--height=520"])
+            except Exception as _we:
+                print(f"[Web Recon Error] {_we}", flush=True)
+                speak(f"Sorry, web recon for {domain} encountered an error.")
+
+        threading.Thread(target=_bg_webrecon, args=(dom,), daemon=True).start()
+        return True
+
     # Hands-Free Voice Recon & Port Scanner ("scan <target>", "quick scan <target>", "scan my network")
     m_scan = re.search(r"^(?:quick\s+|port\s+|nmap\s+|recon\s+)?scan\s+(?:target\s+|host\s+|ip\s+|website\s+|domain\s+)?(.+)$", q)
     if m_scan and not any(w in q for w in ("wifi", "wi-fi", "bluetooth", "virus", "viruses", "malware")):

@@ -16,6 +16,8 @@
   - `"Hey Kali, write <text>"` or `"Hey Kali, write <text> and press enter"` types directly at your active X11 cursor via `xdotool`.
 - **Smart Multi-Action `"and"` Chaining**:
   - Chain commands naturally: `"Hey Kali, open terminal and play music"` or `"Hey Kali, turn on bluetooth and connect to first bluetooth device"`.
+- **Voice Web & Subdomain Recon (`whatweb` + `crt.sh`)**:
+  - `"Hey Kali, web recon <domain>"` / `"enumerate <domain>"` — Fingerprints web server technologies via `whatweb`, enumerates subdomains, speaks a summary, and saves a Desktop report.
 - **Hands-Free Voice Recon & Port Scanner**:
   - `"Hey Kali, scan <target>"` / `"scan my network"` — Runs a fast background `nmap` scan, announces open ports via TTS, and opens a Desktop recon report.
 - **Instant Voice Switcher**:

@@ -7,7 +7,7 @@ echo "[1/5] Installing Kali Linux system dependencies..."
 sudo apt update && sudo apt install -y \
   python3-venv python3-pip python3-pyaudio portaudio19-dev \
   xdotool xclip blueman bluez-obexd wmctrl playerctl \
-  pulseaudio-utils libnotify-bin zenity ffmpeg espeak-ng curl
+  pulseaudio-utils libnotify-bin zenity ffmpeg espeak-ng whatweb curl
 
 echo "[2/5] Setting up Python virtual environment & packages..."
 mkdir -p voices && python3 -m venv venv
