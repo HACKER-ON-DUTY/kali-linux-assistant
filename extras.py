@@ -2682,9 +2682,9 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
         def _arp_watch():
             active_macs = _scan_lan_devices()
-            missed_counts = {}
+            print(f"[Net Watch] Baseline devices ({len(active_macs)}): {list(active_macs.values())}", flush=True)
             while os.path.exists(net_flag):
-                time.sleep(8)
+                time.sleep(5)
                 if not os.path.exists(net_flag):
                     break
                 try:
@@ -2692,21 +2692,16 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 except Exception:
                     continue
 
-                # Forget devices that disconnected for 2 consecutive scans (~16s) so reconnects alert again
+                # Immediately forget disconnected devices so quick Wi-Fi off/on reconnects trigger an alert
                 for old_mac in list(active_macs.keys()):
                     if old_mac not in cur_devs:
-                        missed_counts[old_mac] = missed_counts.get(old_mac, 0) + 1
-                        if missed_counts[old_mac] >= 2:
-                            del active_macs[old_mac]
-                            del missed_counts[old_mac]
-                    else:
-                        missed_counts[old_mac] = 0
+                        print(f"[Net Watch] Device left: {active_macs[old_mac]}", flush=True)
+                        del active_macs[old_mac]
 
                 # Alert whenever a new or reconnecting device joins
                 for mac_a, (ip_a, vendor) in cur_devs.items():
                     if mac_a not in active_macs:
                         active_macs[mac_a] = (ip_a, vendor)
-                        missed_counts[mac_a] = 0
                         dev_label = _resolve_device_name(ip_a, vendor, mac_a)
                         if dev_label:
                             msg = f"Someone has joined the network: {dev_label} at {ip_a}."
