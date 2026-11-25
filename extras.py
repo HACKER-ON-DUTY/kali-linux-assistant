@@ -2355,17 +2355,32 @@ def handle_extra(query, speak, launch_gui, gui_env):
         # Sweep local subnet first so phones & laptops populate the ARP neighbor table
         route_out = subprocess.run(["ip", "-o", "-4", "route", "show", "to", "default"], capture_output=True, text=True).stdout.strip()
         dev_m = re.search(r"dev\s+(\S+)", route_out)
+        active = []
         if dev_m and shutil.which("nmap"):
             addr_out = subprocess.run(["ip", "-o", "-4", "addr", "show", dev_m.group(1)], capture_output=True, text=True).stdout
             cidr_m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+/\d+)", addr_out)
             if cidr_m:
                 import ipaddress as _ipa
                 sn = str(_ipa.ip_interface(cidr_m.group(1)).network)
-                _arp_cmd = ["sudo", "-n", "nmap", "-sn", "-PR", "-n", "--min-rate", "200", "--max-retries", "1", sn]
-                if subprocess.run(_arp_cmd, capture_output=True, text=True, timeout=25).returncode != 0:
-                    subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=20)
-        neigh = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.strip()
-        active = [l for l in neigh.splitlines() if "FAILED" not in l and "lladdr" in l and l.strip()]
+                _arp_res = subprocess.run(["sudo", "-n", "nmap", "-sn", "-PR", "-n", "--min-rate", "200", "--max-retries", "1", sn], capture_output=True, text=True, timeout=25)
+                if _arp_res.returncode != 0:
+                    _arp_res = subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=20)
+                cur_ip = ""
+                for ln in _arp_res.stdout.splitlines():
+                    im = re.match(r"^Nmap scan report for\s+(\S+)", ln.strip())
+                    if im:
+                        if cur_ip:
+                            active.append(f"{cur_ip}  (This Kali Host / Local)")
+                        cur_ip = im.group(1)
+                    elif ln.strip().startswith("MAC Address:") and cur_ip:
+                        mac_info = ln.strip().replace("MAC Address:", "").strip()
+                        active.append(f"{cur_ip:<16}  MAC: {mac_info}")
+                        cur_ip = ""
+                if cur_ip:
+                    active.append(f"{cur_ip}  (This Kali Host / Local)")
+        if not active:
+            neigh = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.strip()
+            active = [l for l in neigh.splitlines() if "FAILED" not in l and "lladdr" in l and l.strip()]
         out_f = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
         open(out_f, "w").write("=== ACTIVE DEVICES ON LOCAL LAN ===\n\n" + ("\n".join(active) if active else "No active neighbors found.") + "\n")
         speak(f"I found {len(active)} active devices on your local network. Displaying the IP and MAC table on your screen.")
