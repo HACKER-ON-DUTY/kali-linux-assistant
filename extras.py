@@ -2797,7 +2797,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 if _pr.endswith("backdrop-cycle-enable"):
                     subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "true"], env=_rt_env, capture_output=True)
                 elif _pr.endswith(("last-image", "image-path")):
-                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "/home/hacker/desktop background/WhatsApp Image 2026-11-12 at 1.03.54 PM.jpg"], env=_rt_env, capture_output=True)
+                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "/usr/share/backgrounds/kali-16x9/default"], env=_rt_env, capture_output=True)
             subprocess.run(["xfdesktop", "--reload"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "Kali-Dark"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Flat-Remix-Blue-Dark"], env=_rt_env, capture_output=True)
