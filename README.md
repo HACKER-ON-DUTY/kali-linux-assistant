@@ -1,4 +1,4 @@
-[![GitHub Stars](https://img.shields.io/github/stars/HACKER-ON-DUTY/kali-linux-assistant)](https://github.com/HACKER-ON-DUTY/kali-linux-assistant) ![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red)
+[![GitHub Stars](https://img.shields.io/github/stars/TECH-ON-DUTY/kali-linux-assistant)](https://github.com/TECH-ON-DUTY/kali-linux-assistant) ![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red)
 
 # Kali Linux Assistant (Hey Kali) — Offline-First Hybrid AI Voice Assistant for Kali Linux
 
@@ -30,7 +30,6 @@ sudo apt update && sudo apt install -y python3-venv python3-pyaudio portaudio19-
 ```bash
 git clone https://github.com/TECH-ON-DUTY/kali-linux-assistant.git
 cd kali-linux-assistant
-python3 -m venv venv
 bash install.sh
 ```
 Download a Piper voice model (e.g. `en_GB-alan-low.onnx` + `.onnx.json`) into `voices/`, install Ollama (`ollama pull gemma3:1b`) for local LLM queries, and start the assistant:

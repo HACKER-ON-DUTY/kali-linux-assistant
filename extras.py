@@ -1412,7 +1412,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         # Case 1: Video platforms (YouTube, TikTok, Instagram, X, Vimeo) -> Download actual merged MP4 video via yt-dlp!
         video_domains = ("youtube.com", "youtu.be", "tiktok.com", "instagram.com", "x.com", "twitter.com", "facebook.com", "vimeo.com")
         if any(d in src_url.lower() for d in video_domains):
-            yt_bin = "/home/hacker/hey-kali/venv/bin/yt-dlp" if os.path.exists("/home/hacker/hey-kali/venv/bin/yt-dlp") else shutil.which("yt-dlp")
+            yt_bin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "bin", "yt-dlp") if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "bin", "yt-dlp")) else shutil.which("yt-dlp")
             if not yt_bin:
                 speak("yt-dlp is not installed yet. Install it inside your virtual environment first.")
                 return True
@@ -2503,14 +2503,18 @@ def handle_extra(query, speak, launch_gui, gui_env):
                                     subprocess.run(["rfkill", "unblock", "bluetooth"])
                                     devs = subprocess.run(["bluetoothctl", "devices"], capture_output=True, text=True).stdout
                                     bt_mac = ""
+                                    first_mac = ""
                                     for line in devs.splitlines():
-                                        if "gamer on bluetooth" in line.lower():
-                                            parts = line.split()
-                                            if len(parts) >= 2:
+                                        parts = line.split()
+                                        if len(parts) >= 2 and parts[0] == "Device":
+                                            if not first_mac:
+                                                first_mac = parts[1].strip()
+                                            if "gamer on bluetooth" in line.lower():
                                                 bt_mac = parts[1].strip()
                                                 break
+                                    bt_mac = bt_mac or first_mac
                                     if not bt_mac:
-                                        print("[Motion BT] Paired device 'GAMER ON BLUETOOTH' not found.", flush=True)
+                                        print("[Motion BT] No paired Bluetooth device found.", flush=True)
                                         return
 
                                     env_bt = os.environ.copy()

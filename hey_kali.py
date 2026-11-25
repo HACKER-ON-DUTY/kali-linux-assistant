@@ -48,7 +48,7 @@ audio = pyaudio.PyAudio()
 mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
-PIPER_MODEL = "/home/hacker/hey-kali/voices/en_GB-alan-low.onnx"
+PIPER_MODEL = os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx")
 
 piper_voice = None
 try:
@@ -147,8 +147,8 @@ def instant_yes():
             return
         except Exception:
             pass
-    if os.path.exists("/home/hacker/hey-kali/yes.wav") and shutil.which("aplay"):
-        subprocess.run(["aplay", "-q", "/home/hacker/hey-kali/yes.wav"])
+    if os.path.exists(os.path.join(_APP_DIR, "yes.wav")) and shutil.which("aplay"):
+        subprocess.run(["aplay", "-q", os.path.join(_APP_DIR, "yes.wav")])
     else:
         subprocess.run(["espeak-ng", "-s", "210", "-a", "95", "Yes?"])
 
