@@ -53,8 +53,8 @@ VOICE_PROFILES = [
     {"id": "en_US-lessac-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-lessac-medium.onnx"), "speed": 1.02, "label": "smooth natural human voice"},
 ]
 _ACTIVE_VOICE_IDX = 0
-_VOICE_SPEED = VOICE_PROFILES["speed"]
-PIPER_MODEL = VOICE_PROFILES["path"]
+_VOICE_SPEED = VOICE_PROFILES[0]["speed"]
+PIPER_MODEL = VOICE_PROFILES[0]["path"]
 
 piper_voice = None
 try:
