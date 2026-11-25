@@ -27,21 +27,17 @@
 - **Built-in 119-Command Self-Diagnostic**:
   - `"Hey Kali, self check"` tests all 119 command modules automatically.
 
-## System Requirements (Kali Linux / Debian)
-```bash
-sudo apt update && sudo apt install -y python3-venv python3-pyaudio portaudio19-dev xdotool xclip blueman bluez-obexd wmctrl playerctl pulseaudio-utils libnotify-bin zenity
-```
+## Zero-Friction One-Command Installation (Kali Linux / Debian)
 
-## Installation & Setup
+`install.sh` automatically installs all APT dependencies (`nmap`, `whatweb`, `avahi-utils`, `samba-common-bin`, `obexftp`, `xdotool`, `zenity`, `ffmpeg`, `espeak-ng`), creates the Python virtual environment, downloads the offline **Vosk** English speech model, downloads both **Piper** neural voices (`en_GB-alan-low` and `en_US-ryan-medium`), pulls **Ollama `gemma3:1b`**, configures passwordless Layer-2 `nmap` ARP scanning, and enables the `hey-kali.service` background daemon:
+
 ```bash
 git clone https://github.com/TECH-ON-DUTY/kali-linux-assistant.git
 cd kali-linux-assistant
 bash install.sh
 ```
-Download a Piper voice model (e.g. `en_GB-alan-low.onnx` + `.onnx.json`) into `voices/`, install Ollama (`ollama pull gemma3:1b`) for local LLM queries, and start the assistant:
-```bash
-./venv/bin/python3 hey_kali.py
-```
+
+Once `bash install.sh` finishes, **Hey Kali** is already running in the background and starts automatically on every login—just say **"Hey Kali, self check"** to verify all **119** voice command modules!
 
 ## Use Cases & Related Search Keywords
 
