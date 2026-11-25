@@ -2839,6 +2839,80 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak("Focus mode activated. Audio muted, browser closed, and terminal ready.")
         return True
 
+    # Hands-Free Voice Recon & Port Scanner ("scan <target>", "quick scan <target>", "scan my network")
+    m_scan = re.search(r"^(?:quick\s+|port\s+|nmap\s+|recon\s+)?scan\s+(?:target\s+|host\s+|ip\s+|website\s+|domain\s+)?(.+)$", q)
+    if m_scan and not any(w in q for w in ("wifi", "wi-fi", "bluetooth", "virus", "viruses", "malware")):
+        raw_t = m_scan.group(1).strip(" .?!")
+        if not shutil.which("nmap"):
+            speak("Nmap is not installed on this system.")
+            return True
+
+        # Handle "scan my network" / "scan local network"
+        if any(w in raw_t for w in ("my network", "local network", "lan", "subnet")):
+            route_out = subprocess.run(["ip", "-o", "-4", "route", "show", "to", "default"], capture_output=True, text=True).stdout.strip()
+            dev_m = re.search(r"dev\s+(\S+)", route_out)
+            subnet = ""
+            if dev_m:
+                addr_out = subprocess.run(["ip", "-o", "-4", "addr", "show", dev_m.group(1)], capture_output=True, text=True).stdout
+                cidr_m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+/\d+)", addr_out)
+                if cidr_m:
+                    import ipaddress as _ipa
+                    subnet = str(_ipa.ip_interface(cidr_m.group(1)).network)
+            if not subnet:
+                speak("Could not detect an active local network subnet to scan.")
+                return True
+            speak(f"Starting fast network host discovery on {subnet}.")
+            def _bg_net_scan(sn):
+                try:
+                    res = subprocess.run(["nmap", "-sn", "-T4", sn], capture_output=True, text=True, timeout=60)
+                    hosts = re.findall(r"Nmap scan report for (.+)", res.stdout)
+                    rep_file = os.path.join(HOME, "Desktop", f"network_scan_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+                    open(rep_file, "w").write(f"=== HEY KALI NETWORK DISCOVERY: {sn} ===\n\n{res.stdout}")
+                    speak(f"Network scan complete. Found {len(hosts)} live hosts on {sn}. Report saved to Desktop.")
+                    if shutil.which("zenity"):
+                        launch_gui(["zenity", "--text-info", f"--title=Network Scan: {sn}", f"--filename={rep_file}", "--width=760", "--height=480"])
+                except Exception as _ne:
+                    print(f"[Net Scan Error] {_ne}", flush=True)
+                    speak("Sorry, the network scan encountered an error.")
+            threading.Thread(target=_bg_net_scan, args=(subnet,), daemon=True).start()
+            return True
+
+        # Clean spoken target ("192 dot 168 dot 1 dot 1" -> "192.168.1.1")
+        target = re.sub(r"\s+dot\s+", ".", raw_t, flags=re.I)
+        target = re.sub(r"^https?://", "", target).split("/").pop(0).strip()
+        target = re.sub(r"[^a-zA-Z0-9.\-:]", "", target)
+        if not target or "." not in target:
+            speak("Please specify a valid IP address or domain to scan.")
+            return True
+
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
+
+        speak(f"Starting fast port scan on {target}. I will announce open ports when finished.")
+        def _bg_recon(tgt):
+            try:
+                res = subprocess.run(["nmap", "-F", "-T4", "--open", tgt], capture_output=True, text=True, timeout=90)
+                open_ports = []
+                for ln in res.stdout.splitlines():
+                    pm = re.match(r"^(\d+/(?:tcp|udp))\s+open\s+(\S+)", ln.strip())
+                    if pm:
+                        open_ports.append(f"{pm.group(1)} ({pm.group(2)})")
+                safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", tgt)
+                rep_file = os.path.join(HOME, "Desktop", f"recon_{safe_name}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+                open(rep_file, "w").write(f"=== HEY KALI RECON REPORT: {tgt} ===\n\n{res.stdout or res.stderr}")
+                if open_ports:
+                    summary = ", ".join(open_ports[:6])
+                    speak(f"Scan complete for {tgt}. Found {len(open_ports)} open ports: {summary}. Full report saved to Desktop.")
+                else:
+                    speak(f"Scan complete for {tgt}. No open top ports detected. Full report saved to Desktop.")
+                if shutil.which("zenity"):
+                    launch_gui(["zenity", "--text-info", f"--title=Recon Report: {tgt}", f"--filename={rep_file}", "--width=760", "--height=500"])
+            except Exception as _re_err:
+                print(f"[Recon Scan Error] {_re_err}", flush=True)
+                speak(f"Sorry, the port scan for {tgt} failed or timed out.")
+        threading.Thread(target=_bg_recon, args=(target,), daemon=True).start()
+        return True
+
     # Voice Toggle ("change voice", "switch voice")
     if q in ("change voice", "switch voice", "toggle voice", "smooth voice", "human voice", "default voice"):
         if globals().get("_RUNNING_SELF_CHECK"):

@@ -16,6 +16,10 @@
   - `"Hey Kali, write <text>"` or `"Hey Kali, write <text> and press enter"` types directly at your active X11 cursor via `xdotool`.
 - **Smart Multi-Action `"and"` Chaining**:
   - Chain commands naturally: `"Hey Kali, open terminal and play music"` or `"Hey Kali, turn on bluetooth and connect to first bluetooth device"`.
+- **Hands-Free Voice Recon & Port Scanner**:
+  - `"Hey Kali, scan <target>"` / `"scan my network"` — Runs a fast background `nmap` scan, announces open ports via TTS, and opens a Desktop recon report.
+- **Instant Voice Switcher**:
+  - `"Hey Kali, change voice"` — Toggles between the default voice and a smooth natural male neural voice (`en_US-ryan-medium`).
 - **Background OSINT Worker (`osint_worker.py`)**:
   - `"Hey Kali, run osint on <target>"` generates and opens a structured desktop OSINT report.
 - **Built-in 113-Command Self-Diagnostic**:
