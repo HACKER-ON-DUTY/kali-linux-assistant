@@ -19,24 +19,21 @@ except Exception as _ext_err:
 
 import urllib.request
 import extras
-import glob, json, os, re, shutil, subprocess, threading, time
+import glob, json, os, re, shutil, subprocess, time
 import numpy as np, pyaudio, speech_recognition as sr
 from vosk import Model, KaldiRecognizer
 from faster_whisper import WhisperModel
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-HOME = os.path.expanduser("~")
-
 GUI_ENV = os.environ.copy()
 GUI_ENV.setdefault("DISPLAY", ":0")
-GUI_ENV.setdefault("XAUTHORITY", os.path.join(HOME, ".Xauthority"))
+GUI_ENV.setdefault("XAUTHORITY", "/home/hacker/.Xauthority")
 GUI_ENV.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
 
-CODE_FILE = os.path.join(BASE_DIR, "last_code.txt")
-CMD_FILE = os.path.join(BASE_DIR, "last_command.txt")
+HOME = os.path.expanduser("~")
+CODE_FILE, CMD_FILE = f"{HOME}/hey-kali/last_code.txt", f"{HOME}/hey-kali/last_command.txt"
 
 vosk_model = Model(model_name="vosk-model-small-en-us-0.15")
-wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "hey cali", "hey kally", "hey carly", "a kali", "[unk]"]')
+wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
 fast_cmd_rec = KaldiRecognizer(
     vosk_model,
     16000,
@@ -50,7 +47,7 @@ audio = pyaudio.PyAudio()
 mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
-PIPER_MODEL = os.path.join(BASE_DIR, "voices", "en_GB-alan-low.onnx")
+PIPER_MODEL = "/home/hacker/hey-kali/voices/en_GB-alan-low.onnx"
 
 piper_voice = None
 try:
@@ -64,6 +61,7 @@ except Exception as e:
 def piper_to_pcm(text, length_scale=0.82):
     if piper_voice is None:
         return b""
+    # Support both newer piper-tts (synthesize -> AudioChunk.audio_int16_bytes) and older versions
     if hasattr(piper_voice, "synthesize"):
         try:
             from piper.config import SynthesisConfig
@@ -81,6 +79,7 @@ def piper_to_pcm(text, length_scale=0.82):
         return b"".join(piper_voice.synthesize_stream_raw(text))
     return b""
 
+# Pre-synthesize "Yes?" with the exact same sample rate & length_scale (0.82) as speak()
 YES_PCM = b""
 YES_RATE = piper_voice.config.sample_rate if piper_voice is not None else 22050
 try:
@@ -96,6 +95,9 @@ if YES_PCM:
     except Exception:
         yes_out_stream = None
 
+# Voice-Synced Caps Lock & Status LED Pulse
+import glob, threading
+
 KBD_BRIGHT_FILES = sorted(glob.glob("/sys/class/leds/input*::capslock/brightness")) + ["/sys/class/leds/hp::hddprotect/brightness", "/sys/class/leds/hda::mute/brightness"]
 
 def set_kbd_level(level):
@@ -109,7 +111,7 @@ def set_kbd_level(level):
             pass
     try:
         flag = "led" if val == "1" else "-led"
-        subprocess.Popen(["xset", flag, "named", "Caps Lock"], env={"DISPLAY": ":0", "XAUTHORITY": os.path.join(HOME, ".Xauthority")})
+        subprocess.Popen(["xset", flag, "named", "Caps Lock"], env={"DISPLAY": ":0", "XAUTHORITY": f"{os.path.expanduser('~')}/.Xauthority"})
     except Exception:
         pass
 
@@ -144,9 +146,8 @@ def instant_yes():
             return
         except Exception:
             pass
-    yes_wav = os.path.join(BASE_DIR, "yes.wav")
-    if os.path.exists(yes_wav) and shutil.which("aplay"):
-        subprocess.run(["aplay", "-q", yes_wav])
+    if os.path.exists("/home/hacker/hey-kali/yes.wav") and shutil.which("aplay"):
+        subprocess.run(["aplay", "-q", "/home/hacker/hey-kali/yes.wav"])
     else:
         subprocess.run(["espeak-ng", "-s", "210", "-a", "95", "Yes?"])
 
@@ -644,29 +645,19 @@ while True:
             data = mic_stream.read(CHUNK, exception_on_overflow=False)
             if wake_rec.AcceptWaveform(data):
                 heard_wake = json.loads(wake_rec.Result()).get("text", "").strip().lower()
-                wake_aliases = ("hey kali", "hey cali", "hey kally", "hey carly", "a kali")
-                if any(heard_wake == w or heard_wake.startswith(w + " ") for w in wake_aliases):
+                if heard_wake == "hey kali":
                     triggered = True
 
         if triggered:
-
             wake_rec.Reset()
-            if mic_stream.is_active():
-                mic_stream.stop_stream()
+            mic_stream.stop_stream()
             instant_yes()
-            if not mic_stream.is_active():
-                mic_stream.start_stream()
+            mic_stream.start_stream()
 
-            try:
-                user_query = record_and_transcribe()
-            except Exception as rec_err:
-                print(f"[Transcribe error]: {rec_err}", flush=True)
-                user_query = ""
-
+            user_query = record_and_transcribe()
             if user_query:
                 print(f"You: {user_query}", flush=True)
-                if mic_stream.is_active():
-                    mic_stream.stop_stream()
+                mic_stream.stop_stream()
                 try:
                     orig_speak = speak
                     interrupted_flag = {"val": False}
@@ -687,15 +678,11 @@ while True:
                     globals()["speak"] = orig_speak
                     print(f"Command error: {e}", flush=True)
                     orig_speak("Sorry, something went wrong with that command.", allow_interrupt=False)
-                finally:
-                    if not mic_stream.is_active():
-                        mic_stream.start_stream()
+                mic_stream.start_stream()
 
             wake_rec.Reset()
             if not barge_in:
                 print("Ready! Say 'Hey Kali'...", flush=True)
     except Exception as loop_err:
-        import traceback
         print(f"Loop error: {loop_err}", flush=True)
-        traceback.print_exc()
         time.sleep(0.5)

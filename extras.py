@@ -1,5 +1,55 @@
-import os as _os_base
-_BASE_DIR = _os_base.path.dirname(_os_base.path.abspath(__file__))
+def _obex_dbus_send(mac_addr, file_path, env_bt=None):
+    import re as _re, time as _time
+    abs_f = os.path.abspath(os.path.expanduser(file_path))
+    if not os.path.isfile(abs_f):
+        print(f"[BT D-Bus] File not found: {abs_f}", flush=True)
+        return False
+    e = dict(env_bt or os.environ)
+    e.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
+    subprocess.run(["systemctl", "--user", "start", "obex"], env=e, capture_output=True)
+    subprocess.run(["bluetoothctl", "trust", mac_addr], env=e, capture_output=True)
+    sess_res = subprocess.run(
+        ["gdbus", "call", "--session", "--dest", "org.bluez.obex", "--object-path", "/org/bluez/obex",
+         "--method", "org.bluez.obex.Client1.CreateSession", mac_addr, "{'Target': <'opp'>}"],
+        env=e, capture_output=True, text=True
+    )
+    m = _re.search(r"(/org/bluez/obex/client/session\d+)", sess_res.stdout)
+    if not m:
+        print(f"[BT D-Bus] CreateSession failed: {sess_res.stderr.strip()}", flush=True)
+        return False
+    sess_path = m.group(1)
+    try:
+        send_res = subprocess.run(
+            ["gdbus", "call", "--session", "--dest", "org.bluez.obex", "--object-path", sess_path,
+             "--method", "org.bluez.obex.ObjectPush1.SendFile", abs_f],
+            env=e, capture_output=True, text=True
+        )
+        tm = _re.search(r"(/org/bluez/obex/client/session\d+/transfer\d+)", send_res.stdout)
+        if not tm:
+            print(f"[BT D-Bus] SendFile failed: {send_res.stderr.strip()}", flush=True)
+            return False
+        t_path = tm.group(1)
+        for _ in range(300):
+            _time.sleep(0.5)
+            st = subprocess.run(
+                ["gdbus", "call", "--session", "--dest", "org.bluez.obex", "--object-path", t_path,
+                 "--method", "org.freedesktop.DBus.Properties.Get", "org.bluez.obex.Transfer1", "Status"],
+                env=e, capture_output=True, text=True
+            ).stdout.lower()
+            if "complete" in st:
+                print(f"[BT D-Bus] Transfer complete: {abs_f}", flush=True)
+                return True
+            if "error" in st or not st.strip():
+                print(f"[BT D-Bus] Transfer ended with status: {st.strip()}", flush=True)
+                return False
+        return False
+    finally:
+        subprocess.run(
+            ["gdbus", "call", "--session", "--dest", "org.bluez.obex", "--object-path", "/org/bluez/obex",
+             "--method", "org.bluez.obex.Client1.RemoveSession", sess_path],
+            env=e, capture_output=True
+        )
+
 import datetime as _dt
 import os, re, sys, json, time, glob, math, wave, base64, hashlib, shutil, signal, datetime, threading, subprocess, urllib.request, urllib.parse
 import numpy as np
@@ -118,8 +168,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak(f"Running OSINT scan on {target_raw}. I will save the report to your desktop.")
             def _bg_osint(t=target_raw):
                 try:
-                    py_bin = f"{_BASE_DIR}/venv/bin/python3"
-                    worker = f"{_BASE_DIR}/osint_worker.py"
+                    py_bin = f"{HOME}/hey-kali/venv/bin/python3"
+                    worker = f"{HOME}/hey-kali/osint_worker.py"
                     res = subprocess.run([py_bin, worker, t], capture_output=True, text=True, timeout=60)
                     out = res.stdout or ""
                     m_saved = re.search(r"Saved:\s*(.+)", out)
@@ -342,7 +392,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         }
         if first_tok in direct_bins or shutil.which(first_tok):
             clean_cmd = raw_cmd.replace("`", "").replace("'", "")
-            open(f"{_BASE_DIR}/last_command.txt", "w").write(clean_cmd + "\n")
+            open(f"{HOME}/hey-kali/last_command.txt", "w").write(clean_cmd + "\n")
             speak(f"Running {clean_cmd} in terminal.")
             bash_script = f"echo 'Command: {clean_cmd}'; echo 'Running in 5s (Ctrl+C to cancel)...'; sleep 5; {clean_cmd}; exec bash"
             term_bin = next((t for t in ("qterminal", "xfce4-terminal", "gnome-terminal", "mate-terminal", "konsole", "x-terminal-emulator") if shutil.which(t)), "")
@@ -411,7 +461,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak("No Wi-Fi networks were found. Check if your adapter is in monitor mode or Wi-Fi is switched off.")
             return True
 
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         open(out_f, "w", encoding="utf-8").write("=== AVAILABLE WI-FI NETWORKS (OFFLINE SCAN) ===\n\n" + wifi_table + "\n")
         speak("Available Wi-Fi networks: " + (", ".join(names[:4]) if names else "listed on your screen") + ". Full table displayed.")
         if shutil.which("zenity"):
@@ -427,7 +477,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak("Scanning for nearby Bluetooth devices for 4 seconds.")
         subprocess.run(["bluetoothctl", "--timeout", "4", "scan", "on"], env=_rt_env, capture_output=True, text=True)
         devs_out = subprocess.run(["bluetoothctl", "devices"], env=_rt_env, capture_output=True, text=True).stdout.strip()
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         open(out_f, "w").write("=== AVAILABLE & PAIRED BLUETOOTH DEVICES (OFFLINE SCAN) ===\n\n" + (devs_out if devs_out else "No Bluetooth devices discovered.") + "\n")
         if devs_out:
             dev_names = [line.split(" ", 2)[2].strip() for line in devs_out.splitlines() if len(line.split(" ", 2)) >= 3]
@@ -763,8 +813,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return True
         slug = re.sub(r"[^a-zA-Z0-9._-]", "_", raw_tgt)[:40]
         rep = f"{HOME}/Desktop/osint_{slug}_{time.strftime('%Y%m%d_%H%M%S')}.txt"
-        py_bin = f"{_BASE_DIR}/venv/bin/python3"
-        worker_py = f"{_BASE_DIR}/osint_worker.py"
+        py_bin = f"{HOME}/hey-kali/venv/bin/python3"
+        worker_py = f"{HOME}/hey-kali/osint_worker.py"
         speak(f"Opening terminal and gathering live OSINT intelligence on {raw_tgt}.")
         tb = shutil.which("qterminal") or shutil.which("xfce4-terminal") or shutil.which("x-terminal-emulator")
         if tb:
@@ -924,7 +974,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             if hasattr(_hk_main, "handle_query"):
                 hk_ns = _hk_main.__dict__
             else:
-                m_src, _, _ = open(f"{_BASE_DIR}/hey_kali.py", "r", encoding="utf-8").read().partition('print("Ready! Say \'Hey Kali\'..."')
+                m_src, _, _ = open(f"{HOME}/hey-kali/hey_kali.py", "r", encoding="utf-8").read().partition('print("Ready! Say \'Hey Kali\'..."')
                 hk_ns = {"__name__": "__selfcheck__"}
                 for _mod_n in ("pyaudio", "vosk", "faster_whisper"):
                     sys.modules.setdefault(_mod_n, _mock.MagicMock())
@@ -947,7 +997,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             # [106] OSINT Worker syntax & real regex extraction verification
             try:
                 import py_compile as _pyc
-                _wk_path = f"{_BASE_DIR}/osint_worker.py"
+                _wk_path = f"{HOME}/hey-kali/osint_worker.py"
                 _pyc.compile(_wk_path, doraise=True)
                 _wk_src = open(_wk_path, "r", encoding="utf-8").read()
                 _sample = (
@@ -990,7 +1040,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             elif os.path.isdir(cleanup_f):
                 os.rmdir(cleanup_f)
 
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         report_lines = [
             "=== HEY KALI 113-COMMAND SELF-DIAGNOSTIC REPORT ===",
             f"Result: {passed_cnt}/113 PASSED | {len(failures)} FAILED",
@@ -1362,7 +1412,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         # Case 1: Video platforms (YouTube, TikTok, Instagram, X, Vimeo) -> Download actual merged MP4 video via yt-dlp!
         video_domains = ("youtube.com", "youtu.be", "tiktok.com", "instagram.com", "x.com", "twitter.com", "facebook.com", "vimeo.com")
         if any(d in src_url.lower() for d in video_domains):
-            yt_bin = f"{_BASE_DIR}/venv/bin/yt-dlp" if os.path.exists(f"{_BASE_DIR}/venv/bin/yt-dlp") else shutil.which("yt-dlp")
+            yt_bin = "/home/hacker/hey-kali/venv/bin/yt-dlp" if os.path.exists("/home/hacker/hey-kali/venv/bin/yt-dlp") else shutil.which("yt-dlp")
             if not yt_bin:
                 speak("yt-dlp is not installed yet. Install it inside your virtual environment first.")
                 return True
@@ -1547,7 +1597,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 speak("Sorry, I could not get a description from the vision service right now.")
                 return True
 
-            out_f = f"{_BASE_DIR}/last_code.txt"
+            out_f = f"{HOME}/hey-kali/last_code.txt"
             open(out_f, "w").write(f"=== COPIED IMAGE ANALYSIS ===\n\n{img_desc}\n")
             speak(img_desc)
             if shutil.which("zenity"):
@@ -1662,7 +1712,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 f"Embedded IPs : {', '.join(ips) if ips else 'None found'}\n"
                 f"Behaviors    : {', '.join(matched_behaviors) if matched_behaviors else 'No suspicious shell/network strings detected'}\n"
             )
-            out_f = f"{_BASE_DIR}/last_code.txt"
+            out_f = f"{HOME}/hey-kali/last_code.txt"
             open(out_f, "w").write(report)
 
             if "HIGH-RISK" in verdict:
@@ -1708,7 +1758,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             with urllib.request.urlopen(req, timeout=8) as resp:
                 ans = json.loads(resp.read().decode("utf-8")).get("response", "").strip()
             if ans:
-                out_f = f"{_BASE_DIR}/last_code.txt"
+                out_f = f"{HOME}/hey-kali/last_code.txt"
                 open(out_f, "w").write(f"=== CLIPBOARD AI ANALYSIS ===\n\n{ans}\n\n--- Copied Input ---\n{clip_txt[:1500]}\n")
                 speak(ans)
                 return True
@@ -1719,8 +1769,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
     # Persistent Scan Whitelist Handler ("add first item to whitelist", "add second virus to whitelist", "whitelist item 2")
     if "whitelist" in q and any(w in q for w in ("add", "item", "virus", "first", "second", "third", "fourth", "fifth", "1", "2", "3", "4", "5")):
-        wl_file = f"{_BASE_DIR}/scan_whitelist.json"
-        last_scan_file = f"{_BASE_DIR}/last_scan_items.json"
+        wl_file = f"{HOME}/hey-kali/scan_whitelist.json"
+        last_scan_file = f"{HOME}/hey-kali/last_scan_items.json"
         if not os.path.exists(last_scan_file):
             speak("There is no recent scan list to whitelist from. Run a virus scan first.")
             return True
@@ -1777,7 +1827,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
     )
     if any(p in q for p in virus_phrases):
         speak("Scanning your system for viruses, hidden malware, and suspicious persistence now.")
-        wl_file = f"{_BASE_DIR}/scan_whitelist.json"
+        wl_file = f"{HOME}/hey-kali/scan_whitelist.json"
         whitelist = []
         if os.path.exists(wl_file):
             try:
@@ -1831,9 +1881,9 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 raw_findings.append(f"[Suspicious Cron Job] {line.strip()}")
 
         findings = [f for f in raw_findings if not _is_whitelisted(f)]
-        open(f"{_BASE_DIR}/last_scan_items.json", "w").write(json.dumps(findings, indent=2))
+        open(f"{HOME}/hey-kali/last_scan_items.json", "w").write(json.dumps(findings, indent=2))
 
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         if findings:
             report = (
                 "=== KALI VIRUS & MALWARE SCAN REPORT ===\n\n"
@@ -1927,7 +1977,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak("Sorry, I could not translate that right now.")
             return True
 
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         open(out_f, "w").write(f"=== TRANSLATION ({target_lang.upper()}) ===\n\n{translated_text}\n\n--- Original ---\n{phrase_to_tr}\n")
         speak(translated_text)
         if len(translated_text) > 90 and shutil.which("zenity"):
@@ -1948,7 +1998,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         if q.startswith(("decrypt ", "decode ")):
             try:
                 decoded = base64.b64decode(raw_input_txt.encode("utf-8")).decode("utf-8", errors="replace")
-                out_f = f"{_BASE_DIR}/last_code.txt"
+                out_f = f"{HOME}/hey-kali/last_code.txt"
                 open(out_f, "w").write(f"=== BASE64 DECODED OUTPUT ===\n\nInput  : {raw_input_txt}\nDecoded: {decoded}\n")
                 if shutil.which("xclip"):
                     p_c = subprocess.Popen(["xclip", "-i", "-selection", "clipboard"], stdin=subprocess.PIPE, env=_rt_env)
@@ -1978,7 +2028,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             f"SHA-512 : {sha512_h}\n\n"
             f"(SHA-256 hash has been copied to your clipboard!)\n"
         )
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         open(out_f, "w").write(report)
 
         if shutil.which("xclip"):
@@ -2119,7 +2169,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             if not vision_answer:
                 vision_answer = "I captured the webcam photo, but could not reach OpenRouter Vision right now. Check your internet connection or API key."
 
-            out_f = f"{_BASE_DIR}/last_code.txt"
+            out_f = f"{HOME}/hey-kali/last_code.txt"
             open(out_f, "w").write(f"=== KALI CAMERA VISION ===\n\n{vision_answer}\n")
             speak(vision_answer)
             if shutil.which("zenity"):
@@ -2259,7 +2309,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             with urllib.request.urlopen(req, timeout=6) as resp:
                 ans = json.loads(resp.read().decode("utf-8")).get("response", "").strip()
             if ans:
-                open(f"{_BASE_DIR}/last_code.txt", "w").write(f"=== SCREEN ANALYSIS ===\n\n{ans}\n")
+                open(f"{HOME}/hey-kali/last_code.txt", "w").write(f"=== SCREEN ANALYSIS ===\n\n{ans}\n")
                 speak(ans)
                 return True
         except Exception:
@@ -2304,7 +2354,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
     if any(p in q for p in ("who is on my network", "who's on my network", "who is on my wifi", "devices on my network", "connected devices")):
         neigh = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.strip()
         active = [l for l in neigh.splitlines() if "FAILED" not in l and l.strip()]
-        out_f = f"{_BASE_DIR}/last_code.txt"
+        out_f = f"{HOME}/hey-kali/last_code.txt"
         open(out_f, "w").write("=== ACTIVE DEVICES ON LOCAL LAN ===\n\n" + ("\n".join(active) if active else "No cached neighbors found.") + "\n")
         speak(f"I found {len(active)} active devices on your local network. Displaying the IP and MAC table on your screen.")
         if shutil.which("zenity"):
@@ -2358,7 +2408,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 pass
             if not ai_desc:
                 ai_desc = f"Average room level is {dbfs:.0f} decibels. " + (f"I also heard: {heard_words}." if heard_words else "No speech detected.")
-            out_f = f"{_BASE_DIR}/last_code.txt"
+            out_f = f"{HOME}/hey-kali/last_code.txt"
             open(out_f, "w").write(f"=== 6-SECOND SOUND ANALYSIS ===\n\n{ai_desc}\n\n{telemetry}\n")
             speak(ai_desc)
             if shutil.which("zenity"):
@@ -2468,10 +2518,10 @@ def handle_extra(query, speak, launch_gui, gui_env):
                                     env_bt["XAUTHORITY"] = f"{HOME}/.Xauthority"
                                     env_bt["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{os.getuid()}/bus"
 
-                                    if shutil.which("obexftp"):
-                                        subprocess.run(["obexftp", "--nopath", "--noconn", "--uuid", "none", "--bluetooth", bt_mac, "--channel", "12", "-p", img_file], timeout=15)
-                                    elif shutil.which("bluetooth-sendto"):
-                                        subprocess.Popen(["bluetooth-sendto", f"--device={bt_mac}", img_file], env=env_bt)
+                                    if shutil.which("blueman-sendto"):
+                                        subprocess.Popen(["blueman-sendto", f"--device={bt_mac}", img_file], env=env_bt)
+                                    else:
+                                        _obex_dbus_send(bt_mac, img_file, env_bt)
                                 except Exception as _bte:
                                     print(f"[Motion BT Error] {_bte}", flush=True)
 
@@ -2660,7 +2710,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             with urllib.request.urlopen(req, timeout=10) as resp:
                 summary = json.loads(resp.read().decode("utf-8")).get("response", "").strip()
             if summary:
-                out_f = f"{_BASE_DIR}/last_code.txt"
+                out_f = f"{HOME}/hey-kali/last_code.txt"
                 open(out_f, "w").write(f"=== DOCUMENT SUMMARY: {os.path.basename(found_doc)} ===\n\n{summary}\n")
                 speak(summary)
                 if shutil.which("zenity"):
@@ -2679,7 +2729,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         archive_path = f"{doc_dir}/hey_kali_backup_{stamp}.tar.gz"
 
         files_to_save = []
-        for rel in ("hey_kali.py", "extras.py", "scan_whitelist.json", "Desktop/Hey_Kali_Commands.txt", "Desktop/Hey_Kali_Offline_Online_Guide.txt", "Desktop/kali_notes.txt"):
+        for rel in ("hey-kali/hey_kali.py", "hey-kali/extras.py", "hey-kali/scan_whitelist.json", "Desktop/Hey_Kali_Commands.txt", "Desktop/Hey_Kali_Offline_Online_Guide.txt", "Desktop/kali_notes.txt"):
             full_p = f"{HOME}/{rel}"
             if os.path.exists(full_p):
                 files_to_save.append(rel)
@@ -2811,8 +2861,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
         if not chosen_file or not os.path.exists(chosen_file):
             speak(f"I could not find a file matching {target_part}.")
             return True
-        if not shutil.which("obexftp") and not shutil.which("bluetooth-sendto"):
-            speak("Bluetooth file transfer tools are not installed. Please install obexftp or bluez-obexd.")
+        if not shutil.which("blueman-sendto") and not shutil.which("gdbus") and not shutil.which("bluetooth-sendto") and not shutil.which("bt-obex"):
+            speak("Bluetooth file transfer tools are not installed.")
             return True
         subprocess.run(["rfkill", "unblock", "bluetooth"], env=_rt_env, capture_output=True)
         subprocess.run(["bluetoothctl", "power", "on"], env=_rt_env, capture_output=True)
@@ -2829,16 +2879,23 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 speak(f"Bluetooth device number {send_idx + 1} was not found.")
                 return True
         else:
-            bt_mac, bt_dev_name = p_devs[0]
+            bt_mac, bt_dev_name = next(((m, n) for m, n in p_devs if "gamer" in n.lower()), p_devs[0])
         speak(f"Sending {os.path.basename(chosen_file)} to {bt_dev_name} via Bluetooth now.")
         def _push_bt(f_path, mac_addr):
-            sent_ok = False
-            if shutil.which("obexftp"):
-                res = subprocess.run(["obexftp", "--nopath", "--noconn", "--uuid", "none", "--bluetooth", mac_addr, "--channel", "12", "-p", f_path], capture_output=True, timeout=30)
-                sent_ok = (res.returncode == 0)
-            if not sent_ok and shutil.which("bluetooth-sendto"):
-                subprocess.Popen(["bluetooth-sendto", f"--device={mac_addr}", f_path], env=_rt_env)
-        threading.Thread(target=_push_bt, args=(chosen_file, bt_mac), daemon=True).start()
+            env_bt = dict(_rt_env)
+            env_bt.setdefault("DISPLAY", os.environ.get("DISPLAY", ":0"))
+            env_bt["XAUTHORITY"] = f"{HOME}/.Xauthority"
+            env_bt["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{os.getuid()}/bus"
+            abs_f = os.path.abspath(os.path.expanduser(f_path))
+            if shutil.which("blueman-sendto"):
+                subprocess.Popen(["blueman-sendto", f"--device={mac_addr}", abs_f], env=env_bt)
+            elif shutil.which("bluetooth-sendto"):
+                subprocess.Popen(["bluetooth-sendto", f"--device={mac_addr}", abs_f], env=env_bt)
+            elif shutil.which("bt-obex"):
+                subprocess.run(["bt-obex", "-p", mac_addr, abs_f], env=env_bt)
+            else:
+                _obex_dbus_send(mac_addr, abs_f, env_bt)
+        threading.Thread(target=_push_bt, args=(chosen_file, bt_mac), daemon=False).start()
         return True
 
     _cli_prefixes = (
@@ -2871,7 +2928,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 found_bin = tok
                 break
 
-        cmd_file = f"{_BASE_DIR}/last_command.txt"
+        cmd_file = f"{HOME}/hey-kali/last_command.txt"
 
         if found_bin:
             man_env = os.environ.copy()
@@ -3053,7 +3110,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             f"SHA512: {hashlib.sha512(raw).hexdigest()}\n"
             f"Base64: {base64.b64encode(raw).decode('utf-8')}\n"
         )
-        hash_file = f"{_BASE_DIR}/last_code.txt"
+        hash_file = f"{HOME}/hey-kali/last_code.txt"
         open(hash_file, "w").write(out_text)
         speak(f"Generated hashes for {word}. Displaying on screen.")
         if shutil.which("zenity"):
@@ -3075,7 +3132,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         task = task.strip() or str(query)
         cmd_out = subprocess.run(["/usr/bin/sgpt", "--shell", "--no-interaction", task], capture_output=True, text=True).stdout.strip()
         if cmd_out:
-            cmd_file = f"{_BASE_DIR}/last_command.txt"
+            cmd_file = f"{HOME}/hey-kali/last_command.txt"
             open(cmd_file, "w").write(cmd_out + "\n")
             speak(f"Command ready: {cmd_out}")
             if shutil.which("zenity"):
@@ -3099,7 +3156,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         )
         gen_code = subprocess.run(["/usr/bin/sgpt", "--code", strict_prompt], capture_output=True, text=True).stdout.strip()
         if gen_code:
-            code_file = f"{_BASE_DIR}/last_code.txt"
+            code_file = f"{HOME}/hey-kali/last_code.txt"
             open(code_file, "w").write(gen_code + "\n")
             speak("Code generated and displayed.")
             if shutil.which("zenity"):
@@ -3121,7 +3178,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return True
 
         clean_target = target.replace(" dot ", ".").replace(" ", "").lower()
-        report_file = f"{_BASE_DIR}/osint_report.txt"
+        report_file = f"{HOME}/hey-kali/osint_report.txt"
 
         # Find a terminal to display public OSINT output transparently
         term = None
@@ -3172,7 +3229,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return True
 
         clean_target = target.replace(" dot ", ".").replace(" ", "")
-        out_file = f"{_BASE_DIR}/last_code.txt"
+        out_file = f"{HOME}/hey-kali/last_code.txt"
 
         # Case A: Domain lookup (contains a dot, e.g., example.com)
         if "." in clean_target and "@" not in clean_target:
@@ -3215,7 +3272,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return True
 
         clean = target.replace(" dot ", ".").strip()
-        out_file = f"{_BASE_DIR}/last_code.txt"
+        out_file = f"{HOME}/hey-kali/last_code.txt"
         report_lines = [f"=== PASSIVE INFORMATION REPORT: {clean} ===", "=" * 55, ""]
 
         # Case 1: IPv4 Address (e.g., 8.8.8.8)
@@ -3335,7 +3392,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 title = track.get("title", "Unknown Title")
                 artist = track.get("subtitle", "Unknown Artist")
                 speak(f"That song is {title} by {artist}.")
-                out_file = f"{_BASE_DIR}/last_code.txt"
+                out_file = f"{HOME}/hey-kali/last_code.txt"
                 open(out_file, "w").write(f"Song: {title}\nArtist: {artist}\n")
             else:
                 speak("Sorry, I could not recognize that song. Try moving closer to the music.")
