@@ -1044,8 +1044,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
         out_f = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
         report_lines = [
-            "=== HEY KALI 113-COMMAND SELF-DIAGNOSTIC REPORT ===",
-            f"Result: {passed_cnt}/113 PASSED | {len(failures)} FAILED",
+            "=== HEY KALI 119-COMMAND SELF-DIAGNOSTIC REPORT ===",
+            f"Result: {passed_cnt}/119 PASSED | {len(failures)} FAILED",
             "=" * 52,
             ""
         ]
@@ -1053,7 +1053,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             report_lines.append("Failed Commands:")
             report_lines.extend(failures)
         else:
-            report_lines.append("All 113 voice command modules executed cleanly with 0 errors!")
+            report_lines.append("All 119 voice command modules executed cleanly with 0 errors!")
 
         open(out_f, "w", encoding="utf-8").write("\n".join(report_lines) + "\n")
 
@@ -1061,7 +1061,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             failed_names = ", ".join(f.split("] ", 1).pop(-1).split(":", 1).pop(0) for f in failures[:4])
             speak(f"Self check complete. {passed_cnt} of 119 passed, and {len(failures)} failed: {failed_names}. Full report shown on screen.")
         else:
-            speak("Self check complete. All 113 commands passed with zero errors.")
+            speak("Self check complete. All 119 commands passed with zero errors.")
 
         if shutil.which("zenity"):
             launch_gui(["zenity", "--text-info", "--title=Hey Kali Self-Check (113 Commands)", f"--filename={out_f}", "--width=740", "--height=440"])
