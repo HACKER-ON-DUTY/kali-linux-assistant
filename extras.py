@@ -2671,13 +2671,14 @@ def handle_extra(query, speak, launch_gui, gui_env):
                                     vendor = ""
                                 found[mac_a] = (cur_ip, vendor)
                             cur_ip = ""
-            for ln in subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.splitlines():
-                parts = ln.split()
-                if "lladdr" in parts and "FAILED" not in ln and len(parts) >= 5:
-                    ip_a = parts.pop(0)
-                    mac_a = parts[parts.index("lladdr") + 1].lower()
-                    if mac_a not in found:
-                        found[mac_a] = (ip_a, "")
+            if not found:
+                for ln in subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.splitlines():
+                    parts = ln.split()
+                    if "lladdr" in parts and "REACHABLE" in ln and len(parts) >= 5:
+                        ip_a = parts.pop(0)
+                        mac_a = parts[parts.index("lladdr") + 1].lower()
+                        if mac_a not in found:
+                            found[mac_a] = (ip_a, "")
             return found
 
         def _arp_watch():
