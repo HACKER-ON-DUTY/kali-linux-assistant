@@ -2973,66 +2973,135 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak(f"Starting web technology and subdomain recon on {dom}.")
         def _bg_webrecon(domain):
             try:
+                import socket as _sock
+                import concurrent.futures as _cf
                 os.makedirs(os.path.join(HOME, "Desktop"), exist_ok=True)
-                tech_summary = ""
-                ww_out = ""
+
+                final_url = f"https://{domain}/"
+                status_line = "Unknown"
+                page_title = "N/A"
+                server_ip = "N/A"
+                location = "N/A"
+                http_srv = "N/A"
+                frameworks = []
+                sec_headers = []
+
                 if shutil.which("whatweb"):
                     ww_res = subprocess.run(["whatweb", "--color=never", "-a", "1", domain], capture_output=True, text=True, timeout=30)
-                    ww_out = (ww_res.stdout or ww_res.stderr).strip()
-                    # Extract bracketed technologies e.g. [Apache][PHP][Country]
-                    tags = re.findall(r"\[([^\]]+)\]", ww_out)
-                    clean_tags = [t for t in tags if not t.startswith(("200 ", "301 ", "302 ", "IP", "Country"))]
-                    if clean_tags:
-                        tech_summary = ", ".join(clean_tags[:6])
+                    ww_lines = [l.strip() for l in (ww_res.stdout or "").splitlines() if l.strip()]
+                    best_ln = ww_lines[-1] if ww_lines else ""
+                    for l in ww_lines:
+                        if "[200 OK]" in l:
+                            best_ln = l
+                    for l in ww_lines:
+                        if http_srv == "N/A":
+                            sm = re.search(r"\bHTTPServer\[([^\]]+)\]", l)
+                            if sm:
+                                http_srv = sm.group(1)
+                    if best_ln:
+                        um = re.match(r"^(\S+)\s+\[([^\]]+)\]", best_ln)
+                        if um:
+                            final_url = um.group(1)
+                            status_line = um.group(2)
+                        ip_m = re.search(r"\bIP\[([^\]]+)\]", best_ln)
+                        if ip_m:
+                            server_ip = ip_m.group(1)
+                        c_m = re.search(r"\bCountry\[([^\]]+)\]\[([^\]]+)\]", best_ln)
+                        if c_m:
+                            location = f"{c_m.group(1)} ({c_m.group(2)})"
+                        t_m = re.search(r"\bTitle\[([^\]]+)\]", best_ln)
+                        if t_m:
+                            page_title = t_m.group(1)
+                        for tok in best_ln.split(", "):
+                            tok_clean = re.sub(r"^\S+\s+\[[^\]]+\]\s*", "", tok).strip()
+                            if not tok_clean or tok_clean.startswith(("IP[", "Country[", "Title[", "HTTPServer[", "RedirectLocation[", "UncommonHeaders[", "Cookies[", "Script[")):
+                                continue
+                            if tok_clean.startswith(("Strict-Transport-Security", "X-Frame-Options", "X-XSS-Protection", "Content-Security-Policy")):
+                                sec_headers.append(tok_clean.replace("[", ": ").rstrip("]"))
+                            else:
+                                frameworks.append(tok_clean.replace("[", " (").replace("]", ")"))
 
-                # Passive subdomain enumeration via HackerTarget + crt.sh Certificate Transparency
-                subs = set()
-                try:
-                    _ht_url = "https://" + "://hackertarget.com" + f"/hostsearch/?q={domain}"
-                    ht = _HTTP.get(_ht_url, timeout=10)
-                    if ht.status_code == 200 and "error" not in ht.text.lower()[:40]:
-                        for ln in ht.text.splitlines():
-                            host = ln.split(",").pop(0).strip().lower()
-                            if host.endswith(domain.lower()) and host != domain.lower():
-                                subs.add(host)
-                except Exception:
-                    pass
-                if not subs:
+                if server_ip == "N/A":
                     try:
-                        _crt_url = "https://" + "crt.sh" + f"/?q=%25.{domain}&output=json"
-                        r = _HTTP.get(_crt_url, timeout=15)
-                        if r.status_code == 200:
-                            for entry in r.json():
-                                for name in str(entry.get("name_value", "")).splitlines():
-                                    name = name.strip().lower().lstrip("*.")
-                                    if name.endswith(domain.lower()) and name != domain.lower():
-                                        subs.add(name)
+                        server_ip = _sock.gethostbyname(domain)
                     except Exception:
                         pass
+
+                # Passive + parallel DNS subdomain enumeration
+                subs = set()
+                try:
+                    ht = _HTTP.get("https://" + "://hackertarget.com" + f"/hostsearch/?q={domain}", timeout=8)
+                    if ht.status_code == 200 and "error" not in ht.text.lower()[:40]:
+                        for ln in ht.text.splitlines():
+                            h = ln.split(",").pop(0).strip().lower()
+                            if h.endswith(domain.lower()) and h != domain.lower():
+                                subs.add(h)
+                except Exception:
+                    pass
+
+                if not subs:
+                    try:
+                        otx = _HTTP.get("https://" + "://alienvault.com" + f"/api/v1/indicators/domain/{domain}/passive_dns", timeout=10)
+                        if otx.status_code == 200:
+                            for rec in otx.json().get("passive_dns", []):
+                                h = str(rec.get("hostname", "")).strip().lower()
+                                if h.endswith(domain.lower()) and h != domain.lower():
+                                    subs.add(h)
+                    except Exception:
+                        pass
+
+                common_prefixes = ["www", "api", "dev", "mail", "m", "i", "blog", "shop", "admin", "portal", "cdn", "status", "support", "help", "docs", "app", "webmail", "vpn", "staging", "test", "graph"]
+                def _probe_sub(pfx):
+                    cand = f"{pfx}.{domain.lower()}"
+                    try:
+                        _sock.gethostbyname(cand)
+                        return cand
+                    except Exception:
+                        return ""
+
+                with _cf.ThreadPoolExecutor(max_workers=10) as ex_pool:
+                    for found_sub in ex_pool.map(_probe_sub, common_prefixes):
+                        if found_sub:
+                            subs.add(found_sub)
 
                 sorted_subs = sorted(subs)
                 safe_d = re.sub(r"[^a-zA-Z0-9._-]", "_", domain)
                 rep_file = os.path.join(HOME, "Desktop", f"webrecon_{safe_d}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+
+                fw_str = ", ".join(frameworks) if frameworks else "None detected"
+                sec_str = ", ".join(sec_headers) if sec_headers else "None detected"
+                sub_lines = "\n".join(f"  • {s}" for s in sorted_subs) if sorted_subs else "  • No public subdomains discovered"
+
                 report_txt = (
-                    f"=== HEY KALI WEB & SUBDOMAIN RECON: {domain} ===\n\n"
-                    f"--- WHATWEB TECH FINGERPRINT ---\n{ww_out or 'whatweb not installed or no HTTP response'}\n\n"
-                    f"--- DISCOVERED SUBDOMAINS ({len(sorted_subs)}) ---\n"
-                    + ("\n".join(sorted_subs) if sorted_subs else "No public subdomains found via Certificate Transparency.")
-                    + "\n"
+                    "================================================================\n"
+                    "  HEY KALI — WEB & SUBDOMAIN RECON REPORT\n"
+                    f"  Target   : {domain}\n"
+                    f"  Time     : {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    "================================================================\n\n"
+                    "[1] TARGET SUMMARY & HTTP STATUS\n"
+                    f"  • Final URL    : {final_url} ({status_line})\n"
+                    f"  • Page Title   : {page_title}\n"
+                    f"  • Server IP    : {server_ip}\n"
+                    f"  • Location     : {location}\n\n"
+                    "[2] DETECTED TECHNOLOGIES & HEADERS\n"
+                    f"  • HTTP Server  : {http_srv}\n"
+                    f"  • Framework    : {fw_str}\n"
+                    f"  • Security     : {sec_str}\n\n"
+                    f"[3] DISCOVERED SUBDOMAINS ({len(sorted_subs)})\n"
+                    f"{sub_lines}\n"
                 )
                 open(rep_file, "w").write(report_txt)
 
-                if tech_summary and sorted_subs:
-                    speak(f"Web recon complete for {domain}. Detected {tech_summary}, and found {len(sorted_subs)} subdomains. Report saved to Desktop.")
-                elif tech_summary:
-                    speak(f"Web recon complete for {domain}. Detected {tech_summary}. Report saved to Desktop.")
+                spoken_fw = [re.sub(r"\(.*\)", "", f).strip() for f in frameworks if not f.startswith(("HttpOnly", "Open-Graph"))]
+                if spoken_fw and sorted_subs:
+                    speak(f"Web recon complete for {domain}. Detected {', '.join(spoken_fw[:4])}, and found {len(sorted_subs)} subdomains. Report saved to Desktop.")
                 elif sorted_subs:
                     speak(f"Web recon complete for {domain}. Found {len(sorted_subs)} subdomains. Report saved to Desktop.")
                 else:
-                    speak(f"Web recon finished for {domain}. Report saved to Desktop.")
+                    speak(f"Web recon complete for {domain}. Report saved to Desktop.")
 
                 if shutil.which("zenity"):
-                    launch_gui(["zenity", "--text-info", f"--title=Web Recon: {domain}", f"--filename={rep_file}", "--width=780", "--height=520"])
+                    launch_gui(["zenity", "--text-info", f"--title=Web Recon: {domain}", f"--filename={rep_file}", "--width=760", "--height=540"])
             except Exception as _we:
                 print(f"[Web Recon Error] {_we}", flush=True)
                 speak(f"Sorry, web recon for {domain} encountered an error.")
