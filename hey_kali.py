@@ -50,7 +50,7 @@ mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
 VOICE_PROFILES = [
     {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.82, "label": "default voice"},
-    {"id": "en_US-lessac-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-lessac-medium.onnx"), "speed": 1.02, "label": "smooth natural human voice"},
+    {"id": "en_US-ryan-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-ryan-medium.onnx"), "speed": 1.0, "label": "smooth male human voice"},
 ]
 _ACTIVE_VOICE_IDX = 0
 _VOICE_SPEED = VOICE_PROFILES[0]["speed"]
@@ -196,10 +196,15 @@ def speak(text, allow_interrupt=True):
         rate = piper_voice.config.sample_rate if piper_voice is not None else 22050
         threading.Thread(target=pulse_kbd_to_pcm, args=(pcm_data, rate, kbd_stop), daemon=True).start()
 
-    if pcm_data and shutil.which("aplay"):
+    if pcm_data and (shutil.which("paplay") or shutil.which("aplay")):
         rate = piper_voice.config.sample_rate
+        play_cmd = (
+            ["paplay", "--raw", f"--rate={rate}", "--format=s16le", "--channels=1"]
+            if shutil.which("paplay")
+            else ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-t", "raw", "-"]
+        )
         proc = subprocess.Popen(
-            ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-t", "raw", "-"],
+            play_cmd,
             stdin=subprocess.PIPE,
             preexec_fn=os.setsid
         )
