@@ -142,11 +142,7 @@ def set_kbd_level(level):
                 f.write(val)
         except Exception:
             pass
-    try:
-        flag = "led" if val == "1" else "-led"
-        subprocess.Popen(["xset", flag, "named", "Caps Lock"], env={"DISPLAY": ":0", "XAUTHORITY": f"{os.path.expanduser('~')}/.Xauthority"})
-    except Exception:
-        pass
+
 
 def pulse_kbd_to_pcm(pcm_bytes, sample_rate, stop_event):
     if not pcm_bytes:
