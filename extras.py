@@ -2839,6 +2839,23 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak("Focus mode activated. Audio muted, browser closed, and terminal ready.")
         return True
 
+    # Voice Toggle ("change voice", "switch voice")
+    if q in ("change voice", "switch voice", "toggle voice", "smooth voice", "human voice", "default voice"):
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
+        import sys as _sys_v
+        _main_mod = _sys_v.modules.get("__main__")
+        if _main_mod and hasattr(_main_mod, "toggle_voice"):
+            try:
+                lbl = _main_mod.toggle_voice()
+                speak(f"Switched to {lbl}.")
+            except Exception as _ve:
+                print(f"[Voice toggle error] {_ve}", flush=True)
+                speak("Sorry, I could not switch the voice model right now.")
+        else:
+            speak("Voice toggle is ready when running Hey Kali directly.")
+        return True
+
     # Bluetooth File/Image/Video Sender ("send <file> to my phone", "send <file> to first/second/third bluetooth")
     m_bt_send = re.search(r"\bsend\b\s+(?:the\s+|file\s+|image\s+|photo\s+|picture\s+|video\s+)?(.+?)\s+\b(?:to\s+(?:the\s+|my\s+)?(?:(first|1st|one|1|second|2nd|two|2|third|3rd|three|3|fourth|4th|four|4|fifth|5th|five|5)\s+)?(?:blue\s*tooth(?:\s+device)?|phone|device)|(?:via|on)\s+blue\s*tooth)\b", q.replace("fast", "first"))
     if m_bt_send:

@@ -38,7 +38,7 @@ wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
 fast_cmd_rec = KaldiRecognizer(
     vosk_model,
     16000,
-    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "[unk]"]'
+    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "change voice", "switch voice", "[unk]"]'
 )
 whisper = WhisperModel("tiny.en", device="cpu", compute_type="int8")
 google_rec = sr.Recognizer()
@@ -48,7 +48,13 @@ audio = pyaudio.PyAudio()
 mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
-PIPER_MODEL = os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx")
+VOICE_PROFILES = [
+    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.82, "label": "default voice"},
+    {"id": "en_US-lessac-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-lessac-medium.onnx"), "speed": 1.02, "label": "smooth natural human voice"},
+]
+_ACTIVE_VOICE_IDX = 0
+_VOICE_SPEED = VOICE_PROFILES["speed"]
+PIPER_MODEL = VOICE_PROFILES["path"]
 
 piper_voice = None
 try:
@@ -59,7 +65,33 @@ try:
 except Exception as e:
     print(f"Piper preload note: {e}", flush=True)
 
-def piper_to_pcm(text, length_scale=0.82):
+def toggle_voice():
+    global _ACTIVE_VOICE_IDX, _VOICE_SPEED, PIPER_MODEL, piper_voice, YES_PCM, YES_RATE, yes_out_stream
+    from piper.voice import PiperVoice
+    next_idx = (_ACTIVE_VOICE_IDX + 1) % len(VOICE_PROFILES)
+    prof = VOICE_PROFILES[next_idx]
+    v_dir = os.path.dirname(prof["path"])
+    os.makedirs(v_dir, exist_ok=True)
+    if not os.path.exists(prof["path"]):
+        subprocess.run([os.path.join(_APP_DIR, "venv", "bin", "python3"), "-m", "piper.download_voices", "--download-dir", v_dir, prof["id"]], check=True)
+    new_v = PiperVoice.load(prof["path"])
+    _ACTIVE_VOICE_IDX = next_idx
+    _VOICE_SPEED = prof["speed"]
+    PIPER_MODEL = prof["path"]
+    piper_voice = new_v
+    YES_RATE = piper_voice.config.sample_rate
+    YES_PCM = piper_to_pcm("Yes?", length_scale=_VOICE_SPEED)
+    try:
+        if yes_out_stream is not None:
+            yes_out_stream.close()
+        yes_out_stream = audio.open(format=pyaudio.paInt16, channels=1, rate=YES_RATE, output=True)
+    except Exception:
+        yes_out_stream = None
+    return prof["label"]
+
+def piper_to_pcm(text, length_scale=None):
+    if length_scale is None:
+        length_scale = _VOICE_SPEED
     if piper_voice is None:
         return b""
     # Support both newer piper-tts (synthesize -> AudioChunk.audio_int16_bytes) and older versions
@@ -85,7 +117,7 @@ YES_PCM = b""
 YES_RATE = piper_voice.config.sample_rate if piper_voice is not None else 22050
 try:
     if piper_voice is not None:
-        YES_PCM = piper_to_pcm("Yes?", length_scale=0.82)
+        YES_PCM = piper_to_pcm("Yes?", length_scale=_VOICE_SPEED)
 except Exception as e:
     print(f"YES_PCM preload note: {e}", flush=True)
 
@@ -158,7 +190,7 @@ def speak(text, allow_interrupt=True):
         return False
     print(f"Kali: {clean}", flush=True)
 
-    pcm_data = piper_to_pcm(clean, length_scale=0.82) if piper_voice is not None else b""
+    pcm_data = piper_to_pcm(clean) if piper_voice is not None else b""
     kbd_stop = threading.Event()
     if pcm_data:
         rate = piper_voice.config.sample_rate if piper_voice is not None else 22050

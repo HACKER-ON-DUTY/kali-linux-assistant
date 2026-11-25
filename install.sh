@@ -8,7 +8,6 @@ mkdir -p voices && python3 -m venv venv
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
 
-curl -sL "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/alan/low/en_GB-alan-low.onnx" -o voices/en_GB-alan-low.onnx
 curl -sL "https://huggingface.co" -o voices/en_GB-alan-low.onnx.json
 
 # Configure auto-start on boot (XDG Desktop Autostart for XFCE/GNOME/KDE)
