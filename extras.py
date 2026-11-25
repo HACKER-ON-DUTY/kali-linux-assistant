@@ -2586,7 +2586,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak("Motion guard was not running.")
         return True
 
-    # 2. ARP Spoof & New-Device Network Watchdog ("watch my network", "stop watching network")
+    # 2. New-Device Wi-Fi & LAN Network Watchdog ("watch my network", "stop watching network")
     if any(p in q for p in ("watch my network", "monitor my network", "start network watchdog", "network guard")):
         net_flag = "/tmp/kali_net_watchdog.active"
         if os.path.exists(net_flag):
@@ -2594,39 +2594,73 @@ def handle_extra(query, speak, launch_gui, gui_env):
             return True
 
         open(net_flag, "w").write("1")
-        speak("Network watchdog started. I will alert you if a new device joins or if ARP spoofing is detected.")
+        speak("Network watchdog started. I will tell you when someone joins the network.")
+
+        def _scan_lan_devices():
+            found = {}
+            route_out = subprocess.run(["ip", "-o", "-4", "route", "show", "to", "default"], capture_output=True, text=True).stdout.strip()
+            dev_m = re.search(r"dev\s+(\S+)", route_out)
+            if dev_m and shutil.which("nmap"):
+                addr_out = subprocess.run(["ip", "-o", "-4", "addr", "show", dev_m.group(1)], capture_output=True, text=True).stdout
+                cidr_m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+/\d+)", addr_out)
+                if cidr_m:
+                    import ipaddress as _ipa
+                    sn = str(_ipa.ip_interface(cidr_m.group(1)).network)
+                    res = subprocess.run(["sudo", "-n", "nmap", "-sn", "-PR", "-n", "--min-rate", "200", "--max-retries", "1", sn], capture_output=True, text=True, timeout=20)
+                    if res.returncode != 0:
+                        res = subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=20)
+                    cur_ip = ""
+                    for ln in res.stdout.splitlines():
+                        im = re.match(r"^Nmap scan report for\s+(\S+)", ln.strip())
+                        if im:
+                            cur_ip = im.group(1)
+                        elif ln.strip().startswith("MAC Address:") and cur_ip:
+                            mm = re.match(r"MAC Address:\s+([0-9A-Fa-f:]+)(?:\s+\((.+?)\))?", ln.strip())
+                            if mm:
+                                mac_a = mm.group(1).lower()
+                                vendor = (mm.group(2) or "").strip()
+                                if vendor.lower() == "unknown":
+                                    vendor = ""
+                                found[mac_a] = (cur_ip, vendor)
+                            cur_ip = ""
+            for ln in subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.splitlines():
+                parts = ln.split()
+                if "lladdr" in parts and "FAILED" not in ln and len(parts) >= 5:
+                    ip_a = parts.pop(0)
+                    mac_a = parts[parts.index("lladdr") + 1].lower()
+                    if mac_a not in found:
+                        found[mac_a] = (ip_a, "")
+            return found
 
         def _arp_watch():
-            known_ips = {}
-            init_out = subprocess.run(["ip", "neigh"], capture_output=True, text=True).stdout
-            for line in init_out.splitlines():
-                parts = line.split()
-                if "lladdr" in parts and len(parts) >= 5:
-                    known_ips[parts[0]] = parts[parts.index("lladdr") + 1].lower()
-
+            known_macs = _scan_lan_devices()
             while os.path.exists(net_flag):
-                time.sleep(6)
+                time.sleep(10)
                 if not os.path.exists(net_flag):
                     break
-                cur_out = subprocess.run(["ip", "neigh"], capture_output=True, text=True).stdout
-                mac_to_ips = {}
-                for line in cur_out.splitlines():
-                    parts = line.split()
-                    if "lladdr" in parts and len(parts) >= 5:
-                        ip_a = parts[0]
-                        mac_a = parts[parts.index("lladdr") + 1].lower()
-                        mac_to_ips.setdefault(mac_a, set()).add(ip_a)
-                        if ip_a not in known_ips:
-                            known_ips[ip_a] = mac_a
-                            speak(f"Network alert! New device detected at IP {ip_a}.", allow_interrupt=False)
-                        elif known_ips[ip_a] != mac_a:
-                            known_ips[ip_a] = mac_a
-                            speak(f"Warning! MAC address changed for {ip_a}. Possible ARP spoofing.", allow_interrupt=False)
-
-                for mac_a, ip_set in mac_to_ips.items():
-                    if len(ip_set) >= 2:
-                        speak("Critical security warning! Duplicate MAC address detected across multiple IPs. Possible ARP spoofing attack.", allow_interrupt=False)
-                        time.sleep(15)
+                try:
+                    cur_devs = _scan_lan_devices()
+                except Exception:
+                    continue
+                for mac_a, (ip_a, vendor) in cur_devs.items():
+                    if mac_a not in known_macs:
+                        known_macs[mac_a] = (ip_a, vendor)
+                        host_name = ""
+                        try:
+                            import socket as _sock
+                            h = _sock.gethostbyaddr(ip_a).pop(0)
+                            if h and h != ip_a:
+                                host_name = h.split(".").pop(0)
+                        except Exception:
+                            pass
+                        dev_label = host_name or vendor
+                        if dev_label:
+                            msg = f"Someone has joined the network: {dev_label} at {ip_a}."
+                        else:
+                            msg = f"Someone has joined the network at IP {ip_a}."
+                        if shutil.which("notify-send"):
+                            subprocess.Popen(["notify-send", "Hey Kali — Network Activity", msg], env=_rt_env)
+                        speak(msg, allow_interrupt=False)
 
         threading.Thread(target=_arp_watch, daemon=True).start()
         return True
