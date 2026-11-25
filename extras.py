@@ -2985,18 +2985,28 @@ def handle_extra(query, speak, launch_gui, gui_env):
                     if clean_tags:
                         tech_summary = ", ".join(clean_tags[:6])
 
-                # Passive subdomain enumeration via crt.sh Certificate Transparency
+                # Passive subdomain enumeration via HackerTarget + crt.sh Certificate Transparency
                 subs = set()
                 try:
-                    r = _HTTP.get(f"https://crt.sh.{domain}&output=json", timeout=15)
-                    if r.status_code == 200:
-                        for entry in r.json():
-                            for name in str(entry.get("name_value", "")).splitlines():
-                                name = name.strip().lower().lstrip("*.")
-                                if name.endswith(domain.lower()) and name != domain.lower():
-                                    subs.add(name)
+                    ht = _HTTP.get(f"https://hackertarget.com{domain}", timeout=10)
+                    if ht.status_code == 200 and "error" not in ht.text.lower()[:40]:
+                        for ln in ht.text.splitlines():
+                            host = ln.split(",").pop(0).strip().lower()
+                            if host.endswith(domain.lower()) and host != domain.lower():
+                                subs.add(host)
                 except Exception:
                     pass
+                if not subs:
+                    try:
+                        r = _HTTP.get(f"https://crt.sh.{domain}&output=json", timeout=15)
+                        if r.status_code == 200:
+                            for entry in r.json():
+                                for name in str(entry.get("name_value", "")).splitlines():
+                                    name = name.strip().lower().lstrip("*.")
+                                    if name.endswith(domain.lower()) and name != domain.lower():
+                                        subs.add(name)
+                    except Exception:
+                        pass
 
                 sorted_subs = sorted(subs)
                 safe_d = re.sub(r"[^a-zA-Z0-9._-]", "_", domain)
