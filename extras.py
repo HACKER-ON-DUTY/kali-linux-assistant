@@ -2988,7 +2988,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 # Passive subdomain enumeration via HackerTarget + crt.sh Certificate Transparency
                 subs = set()
                 try:
-                    ht = _HTTP.get(f"https://hackertarget.com{domain}", timeout=10)
+                    _ht_url = "https://" + "://hackertarget.com" + f"/hostsearch/?q={domain}"
+                    ht = _HTTP.get(_ht_url, timeout=10)
                     if ht.status_code == 200 and "error" not in ht.text.lower()[:40]:
                         for ln in ht.text.splitlines():
                             host = ln.split(",").pop(0).strip().lower()
@@ -2998,7 +2999,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
                     pass
                 if not subs:
                     try:
-                        r = _HTTP.get(f"https://crt.sh.{domain}&output=json", timeout=15)
+                        _crt_url = "https://" + "crt.sh" + f"/?q=%25.{domain}&output=json"
+                        r = _HTTP.get(_crt_url, timeout=15)
                         if r.status_code == 200:
                             for entry in r.json():
                                 for name in str(entry.get("name_value", "")).splitlines():
