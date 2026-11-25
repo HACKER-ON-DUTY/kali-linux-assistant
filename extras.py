@@ -2864,7 +2864,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak(f"Starting fast network host discovery on {subnet}.")
             def _bg_net_scan(sn):
                 try:
-                    res = subprocess.run(["nmap", "-sn", "-T4", sn], capture_output=True, text=True, timeout=60)
+                    os.makedirs(os.path.join(HOME, "Desktop"), exist_ok=True)
+                    res = subprocess.run(["nmap", "-sn", "-n", "-T4", "--min-rate", "150", "--max-retries", "1", sn], capture_output=True, text=True, timeout=120)
                     hosts = re.findall(r"Nmap scan report for (.+)", res.stdout)
                     rep_file = os.path.join(HOME, "Desktop", f"network_scan_{time.strftime('%Y%m%d_%H%M%S')}.txt")
                     open(rep_file, "w").write(f"=== HEY KALI NETWORK DISCOVERY: {sn} ===\n\n{res.stdout}")
@@ -2891,7 +2892,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
         speak(f"Starting fast port scan on {target}. I will announce open ports when finished.")
         def _bg_recon(tgt):
             try:
-                res = subprocess.run(["nmap", "-F", "-T4", "--open", tgt], capture_output=True, text=True, timeout=90)
+                os.makedirs(os.path.join(HOME, "Desktop"), exist_ok=True)
+                res = subprocess.run(["nmap", "-F", "-n", "-T4", "--min-rate", "150", "--open", tgt], capture_output=True, text=True, timeout=120)
                 open_ports = []
                 for ln in res.stdout.splitlines():
                     pm = re.match(r"^(\d+/(?:tcp|udp))\s+open\s+(\S+)", ln.strip())
