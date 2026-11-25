@@ -26,11 +26,12 @@ from faster_whisper import WhisperModel
 
 GUI_ENV = os.environ.copy()
 GUI_ENV.setdefault("DISPLAY", ":0")
-GUI_ENV.setdefault("XAUTHORITY", "/home/hacker/.Xauthority")
+GUI_ENV.setdefault("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
 GUI_ENV.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
 
 HOME = os.path.expanduser("~")
-CODE_FILE, CMD_FILE = f"{HOME}/hey-kali/last_code.txt", f"{HOME}/hey-kali/last_command.txt"
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+CODE_FILE, CMD_FILE = os.path.join(_APP_DIR, "last_code.txt"), os.path.join(_APP_DIR, "last_command.txt")
 
 vosk_model = Model(model_name="vosk-model-small-en-us-0.15")
 wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
