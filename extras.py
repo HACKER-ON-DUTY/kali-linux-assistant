@@ -977,7 +977,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 hk_ns = _hk_main.__dict__
             else:
                 m_src, _, _ = open(f"{os.path.dirname(os.path.abspath(__file__))}/hey_kali.py", "r", encoding="utf-8").read().partition('print("Ready! Say \'Hey Kali\'..."')
-                hk_ns = {"__name__": "__selfcheck__"}
+                hk_ns = {"__name__": "__selfcheck__", "__file__": os.path.join(os.path.dirname(os.path.abspath(__file__)), "hey_kali.py")}
                 for _mod_n in ("pyaudio", "vosk", "faster_whisper"):
                     sys.modules.setdefault(_mod_n, _mock.MagicMock())
                 exec(m_src, hk_ns)
@@ -986,7 +986,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             orig_gui = hk_ns.get("launch_gui", launch_gui)
             try:
                 hk_ns["speak"] = lambda m, **kw: False
-                hk_ns["launch_gui"] = lambda c: True
+                hk_ns["launch_gui"] = lambda *a, **kw: True
                 for offset, cmd in enumerate(core_cmds_15, 97):
                     try:
                         hk_ns["handle_query"](cmd)
