@@ -2352,10 +2352,20 @@ def handle_extra(query, speak, launch_gui, gui_env):
         return True
 
     if any(p in q for p in ("who is on my network", "who's on my network", "who is on my wifi", "devices on my network", "connected devices")):
+        # Sweep local subnet first so phones & laptops populate the ARP neighbor table
+        route_out = subprocess.run(["ip", "-o", "-4", "route", "show", "to", "default"], capture_output=True, text=True).stdout.strip()
+        dev_m = re.search(r"dev\s+(\S+)", route_out)
+        if dev_m and shutil.which("nmap"):
+            addr_out = subprocess.run(["ip", "-o", "-4", "addr", "show", dev_m.group(1)], capture_output=True, text=True).stdout
+            cidr_m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+/\d+)", addr_out)
+            if cidr_m:
+                import ipaddress as _ipa
+                sn = str(_ipa.ip_interface(cidr_m.group(1)).network)
+                subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=15)
         neigh = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.strip()
-        active = [l for l in neigh.splitlines() if "FAILED" not in l and l.strip()]
+        active = [l for l in neigh.splitlines() if "FAILED" not in l and "lladdr" in l and l.strip()]
         out_f = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
-        open(out_f, "w").write("=== ACTIVE DEVICES ON LOCAL LAN ===\n\n" + ("\n".join(active) if active else "No cached neighbors found.") + "\n")
+        open(out_f, "w").write("=== ACTIVE DEVICES ON LOCAL LAN ===\n\n" + ("\n".join(active) if active else "No active neighbors found.") + "\n")
         speak(f"I found {len(active)} active devices on your local network. Displaying the IP and MAC table on your screen.")
         if shutil.which("zenity"):
             launch_gui(["zenity", "--text-info", "--title=Local Network Devices", f"--filename={out_f}", "--width=720", "--height=400"])
