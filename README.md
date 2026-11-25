@@ -2,7 +2,7 @@
 
 # Kali Linux Assistant (Hey Kali) — Offline-First Hybrid AI Voice Assistant for Kali Linux
 
-**Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 113 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
+**Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 119 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
 
 ## Key Features
 - **3-Tier Speech Engine**: Offline **Vosk** wake-word (`"Hey Kali"`) & constrained command grammar (0.0s trigger) + **Faster-Whisper (`tiny.en`)** & **Google STT** fallback + **Piper** neural TTS loaded in RAM.
@@ -24,8 +24,8 @@
   - `"Hey Kali, change voice"` — Toggles between the default voice and a smooth natural male neural voice (`en_US-ryan-medium`).
 - **Background OSINT Worker (`osint_worker.py`)**:
   - `"Hey Kali, run osint on <target>"` generates and opens a structured desktop OSINT report.
-- **Built-in 113-Command Self-Diagnostic**:
-  - `"Hey Kali, self check"` tests all 113 command modules automatically.
+- **Built-in 119-Command Self-Diagnostic**:
+  - `"Hey Kali, self check"` tests all 119 command modules automatically.
 
 ## System Requirements (Kali Linux / Debian)
 ```bash

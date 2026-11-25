@@ -941,7 +941,9 @@ def handle_extra(query, speak, launch_gui, gui_env):
             "start screen recording", "stop screen recording", "scan for viruses",
             "hash kali2026", "decode aGVsbG8=", "translate hello to swahili", "fungua firefox", "who do you belong to", "self check",
             "run osint on Elon Musk", "osint Elon Musk", "investigate Elon Musk",
-            "connect to gamer on bluetooth", "connect to first bluetooth device", "write hello world", "hacker mode", "revert mode", "send demo_test to first bluetooth"
+            "connect to gamer on bluetooth", "connect to first bluetooth device", "write hello world", "hacker mode", "revert mode", "send demo_test to first bluetooth",
+            "web recon example.com", "enumerate example.com", "fingerprint example.com",
+            "scan scanme.nmap.org", "scan my network", "change voice"
         ]
 
         core_cmds_15 = [
@@ -1057,7 +1059,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
         if failures:
             failed_names = ", ".join(f.split("] ", 1).pop(-1).split(":", 1).pop(0) for f in failures[:4])
-            speak(f"Self check complete. {passed_cnt} of 113 passed, and {len(failures)} failed: {failed_names}. Full report shown on screen.")
+            speak(f"Self check complete. {passed_cnt} of 119 passed, and {len(failures)} failed: {failed_names}. Full report shown on screen.")
         else:
             speak("Self check complete. All 113 commands passed with zero errors.")
 
