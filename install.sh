@@ -26,6 +26,8 @@ if command -v ollama >/dev/null 2>&1; then
   ollama pull gemma3:1b || true
 fi
 
+echo "${SUDO_USER:-$USER} ALL=(ALL) NOPASSWD: /usr/bin/nmap" | sudo tee /etc/sudoers.d/hey-kali-net >/dev/null && sudo chmod 440 /etc/sudoers.d/hey-kali-net || true
+
 echo "[5/5] Configuring auto-start on boot..."
 mkdir -p "$HOME/.config/autostart"
 cat > "$HOME/.config/autostart/hey-kali.desktop" <<DESKTOP

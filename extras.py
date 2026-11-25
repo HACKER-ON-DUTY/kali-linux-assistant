@@ -2361,7 +2361,9 @@ def handle_extra(query, speak, launch_gui, gui_env):
             if cidr_m:
                 import ipaddress as _ipa
                 sn = str(_ipa.ip_interface(cidr_m.group(1)).network)
-                subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=15)
+                _arp_cmd = ["sudo", "-n", "nmap", "-sn", "-PR", "-n", "--min-rate", "200", "--max-retries", "1", sn]
+                if subprocess.run(_arp_cmd, capture_output=True, text=True, timeout=25).returncode != 0:
+                    subprocess.run(["nmap", "-sn", "-n", "-T5", "--min-rate", "300", "--max-retries", "1", sn], capture_output=True, text=True, timeout=20)
         neigh = subprocess.run(["ip", "-4", "neigh", "show"], capture_output=True, text=True).stdout.strip()
         active = [l for l in neigh.splitlines() if "FAILED" not in l and "lladdr" in l and l.strip()]
         out_f = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
