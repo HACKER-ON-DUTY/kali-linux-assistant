@@ -30,7 +30,7 @@ GUI_ENV.setdefault("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
 GUI_ENV.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path=/run/user/{os.getuid()}/bus")
 
 HOME = os.path.expanduser("~")
-_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_APP_DIR = os.path.dirname(os.path.abspath(globals().get('__file__') or 'hey_kali.py'))
 CODE_FILE, CMD_FILE = os.path.join(_APP_DIR, "last_code.txt"), os.path.join(_APP_DIR, "last_command.txt")
 
 vosk_model = Model(model_name="vosk-model-small-en-us-0.15")

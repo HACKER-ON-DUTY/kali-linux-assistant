@@ -7,3 +7,4 @@ piper-tts
 requests
 beautifulsoup4
 yt-dlp
+shazamio
