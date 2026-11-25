@@ -1036,7 +1036,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         finally:
           globals()["_RUNNING_SELF_CHECK"] = False
 
-        for cleanup_f in (f"{HOME}/Desktop/demo_test.txt", f"{HOME}/Desktop/demo_dir"):
+        for cleanup_f in (f"{HOME}/Desktop/demo_test.txt", f"{HOME}/Desktop/demo_dir", "/tmp/kali_net_watchdog.active", "/tmp/kali_motion_guard.active"):
             if os.path.isfile(cleanup_f):
                 os.remove(cleanup_f)
             elif os.path.isdir(cleanup_f):
@@ -2475,6 +2475,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
             speak("No webcam device was found at video zero.")
             return True
 
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
         guard_flag = "/tmp/kali_motion_guard.active"
         if os.path.exists(guard_flag):
             speak("Motion guard is already active and watching your camera.")
@@ -2590,6 +2592,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
     # 2. New-Device Wi-Fi & LAN Network Watchdog ("watch my network", "stop watching network")
     if any(p in q for p in ("watch my network", "monitor my network", "start network watchdog", "network guard")):
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
         net_flag = "/tmp/kali_net_watchdog.active"
         if os.path.exists(net_flag):
             speak("Network watchdog is already monitoring your local network.")
