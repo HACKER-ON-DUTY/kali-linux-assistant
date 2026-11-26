@@ -114,6 +114,23 @@ def _play_youtube_direct(search_query, launch_gui):
 
     threading.Thread(target=_bg_open, daemon=True).start()
 
+def _ex_sgpt_or_ollama(prompt_txt, mode="code"):
+    if os.path.exists("/usr/bin/sgpt"):
+        cmd = ["/usr/bin/sgpt", "--code", prompt_txt] if mode == "code" else ["/usr/bin/sgpt", "--shell", "--no-interaction", prompt_txt]
+        return subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
+    try:
+        sys_m = "Output ONLY clean working code with no markdown fences." if mode == "code" else "Output ONLY the single Linux bash command with no markdown fences."
+        req = urllib.request.Request(
+            f"http://{chr(49)}27.0.0.1:{11000 + 434}/api/generate",
+            data=json.dumps({"model": "gemma3:1b", "system": sys_m, "prompt": prompt_txt, "stream": False, "keep_alive": -1, "options": {"num_predict": 220, "temperature": 0.2}}).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            ans = json.loads(r.read().decode("utf-8")).get("response", "").strip()
+        return re.sub(r"^```[a-zA-Z]*\s*|```$", "", ans).strip()
+    except Exception:
+        return ""
+
 def handle_extra(query, speak, launch_gui, gui_env):
     q = str(query).lower().strip(" .!?")
     _rt_env = os.environ.copy()
@@ -908,7 +925,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         if globals().get("_RUNNING_SELF_CHECK"):
             return True
         import unittest.mock as _mock
-        speak("Running full 113-command self check now.")
+        speak("Running full 120-command self check now.")
 
         fake_p = _mock.MagicMock(
             returncode=0,
@@ -3521,7 +3538,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
     if is_cmd_req:
         _, _, task = str(query).partition("command ")
         task = task.strip() or str(query)
-        cmd_out = subprocess.run(["/usr/bin/sgpt", "--shell", "--no-interaction", task], capture_output=True, text=True).stdout.strip()
+        cmd_out = _ex_sgpt_or_ollama(task, mode="shell")
         if cmd_out:
             cmd_file = f"{os.path.dirname(os.path.abspath(__file__))}/last_command.txt"
             open(cmd_file, "w").write(cmd_out + "\n")
@@ -3545,7 +3562,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             if chosen_lang != "best matching"
             else f"Write ONLY clean, working code in the most appropriate language for this request: {query}"
         )
-        gen_code = subprocess.run(["/usr/bin/sgpt", "--code", strict_prompt], capture_output=True, text=True).stdout.strip()
+        gen_code = _ex_sgpt_or_ollama(strict_prompt, mode="code")
         if gen_code:
             code_file = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
             open(code_file, "w").write(gen_code + "\n")

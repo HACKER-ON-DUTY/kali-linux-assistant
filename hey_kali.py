@@ -592,6 +592,35 @@ def _split_chained_commands(raw_q):
         return [p.strip(" .!?") for p in parts if p.strip(" .!?")]
     return [s]
 
+def _run_code_or_shell(task_prompt, mode="code"):
+    if os.path.exists("/usr/bin/sgpt"):
+        flag = "--code" if mode == "code" else "--shell"
+        cmd = ["/usr/bin/sgpt", flag, task_prompt] if mode == "code" else ["/usr/bin/sgpt", flag, "--no-interaction", task_prompt]
+        return subprocess.run(cmd, capture_output=True, text=True).stdout.strip()
+    try:
+        sys_msg = (
+            "Output ONLY clean, working code with no markdown fences or extra explanation."
+            if mode == "code" else
+            "Output ONLY the single Linux bash command with no markdown fences or explanation."
+        )
+        req = urllib.request.Request(
+            f"http://{chr(49)}27.0.0.1:{11000 + 434}/api/generate",
+            data=json.dumps({
+                "model": "gemma3:1b",
+                "system": sys_msg,
+                "prompt": task_prompt,
+                "stream": False,
+                "keep_alive": -1,
+                "options": {"num_predict": 220, "temperature": 0.2}
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            ans = json.loads(r.read().decode("utf-8")).get("response", "").strip()
+        return re.sub(r"^```[a-zA-Z]*\s*|```$", "", ans).strip()
+    except Exception:
+        return ""
+
 def handle_query(query, _chained=False):
     pending_act = globals().get("_PENDING_JARVIS_ACTION")
     q_chk = str(query).lower().strip(" .!?,")
@@ -703,7 +732,7 @@ def handle_query(query, _chained=False):
             open_any_app(rest)
             return
         speak("Preparing command in terminal.")
-        cmd_to_run = re.sub(r"^```[a-zA-Z]*\s*|```$", "", subprocess.run(["/usr/bin/sgpt", "--shell", "--no-interaction", rest], capture_output=True, text=True).stdout.strip()).strip("`'\n ")
+        cmd_to_run = re.sub(r"^```[a-zA-Z]*\s*|```$", "", _run_code_or_shell(rest, mode="shell")).strip("`'\n ")
         if cmd_to_run:
             with open(CMD_FILE, "w") as f:
                 f.write(cmd_to_run + "\n")
@@ -717,7 +746,7 @@ def handle_query(query, _chained=False):
         return
     if any(word in q_lower for word in ("code", "script", "program", "function", "write a ", "generate ", "create a ")):
         speak("Generating code, please wait.")
-        generated_code = subprocess.run(["/usr/bin/sgpt", "--code", query], capture_output=True, text=True).stdout.strip()
+        generated_code = _run_code_or_shell(query, mode="code")
         if generated_code:
             with open(CODE_FILE, "w") as f:
                 f.write(generated_code + "\n")
@@ -728,7 +757,7 @@ def handle_query(query, _chained=False):
         return
     if q_lower.startswith(("command ", "draft ", "how do i ")):
         clean_task = rest if rest else query
-        drafted_cmd = subprocess.run(["/usr/bin/sgpt", "--shell", "--no-interaction", clean_task], capture_output=True, text=True).stdout.strip()
+        drafted_cmd = _run_code_or_shell(clean_task, mode="shell")
         if drafted_cmd:
             with open(CMD_FILE, "w") as f:
                 f.write(drafted_cmd + "\n")
