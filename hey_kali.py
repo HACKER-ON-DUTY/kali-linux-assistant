@@ -283,56 +283,48 @@ def speak(text, allow_interrupt=True):
         rate = piper_voice.config.sample_rate if piper_voice is not None else 22050
         threading.Thread(target=pulse_kbd_to_pcm, args=(pcm_data, rate, kbd_stop), daemon=True).start()
 
-    if pcm_data and (shutil.which("paplay") or shutil.which("aplay")):
-        rate = piper_voice.config.sample_rate
-        play_cmd = (
-            ["paplay", "--raw", f"--rate={rate}", "--format=s16le", "--channels=1", "--latency-msec=50"]
-            if shutil.which("paplay")
-            else ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-t", "raw", "-"]
-        )
-        proc = subprocess.Popen(
-            play_cmd,
-            stdin=subprocess.PIPE,
-            preexec_fn=os.setsid
-        )
+    interrupted = False
+    if allow_interrupt and os.path.exists("/tmp/kali_stop_now"):
         try:
-            proc.stdin.write(pcm_data)
-            proc.stdin.close()
+            os.remove("/tmp/kali_stop_now")
         except Exception:
             pass
-    else:
-        proc = subprocess.Popen(["espeak-ng", "-s", "205", "-a", "85", clean], preexec_fn=os.setsid)
+        kbd_stop.set()
+        return True
 
-    interrupted = False
-    if allow_interrupt:
-        was_active = mic_stream.is_active()
-        if not was_active:
-            mic_stream.start_stream()
-        stop_rec.Reset()
-        if os.path.exists("/tmp/kali_stop_now"):
-            os.remove("/tmp/kali_stop_now")
-        est_dur = (len(pcm_data) / (rate * 2.0)) if pcm_data else 2.5
-        t_end = time.time() + est_dur + 0.15
-        while proc.poll() is None or time.time() < t_end:
-            if os.path.exists("/tmp/kali_stop_now"):
+    if pcm_data and yes_out_stream is not None:
+        rate = piper_voice.config.sample_rate
+        step_bytes = int(rate * 2 * 0.08)  # 80ms real-time chunks (zero PipeWire buffer lag!)
+        for off in range(0, len(pcm_data), step_bytes):
+            if allow_interrupt and os.path.exists("/tmp/kali_stop_now"):
                 try:
                     os.remove("/tmp/kali_stop_now")
                 except Exception:
                     pass
-                import signal
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except Exception:
-                    pass
-                subprocess.run(["pkill", "-9", "-x", "paplay"], stderr=subprocess.DEVNULL)
                 interrupted = True
                 print("Kali: [Stopped via hotkey — listening for new command]", flush=True)
                 break
-            time.sleep(0.04)
-        if not was_active:
-            mic_stream.stop_stream()
+            yes_out_stream.write(pcm_data[off:off + step_bytes])
     else:
-        proc.wait()
+        proc = subprocess.Popen(["espeak-ng", "-s", "205", "-a", "85", clean], preexec_fn=os.setsid)
+        if allow_interrupt:
+            while proc.poll() is None:
+                if os.path.exists("/tmp/kali_stop_now"):
+                    try:
+                        os.remove("/tmp/kali_stop_now")
+                    except Exception:
+                        pass
+                    import signal
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except Exception:
+                        pass
+                    interrupted = True
+                    print("Kali: [Stopped via hotkey — listening for new command]", flush=True)
+                    break
+                time.sleep(0.04)
+        else:
+            proc.wait()
 
     kbd_stop.set()
     return interrupted
