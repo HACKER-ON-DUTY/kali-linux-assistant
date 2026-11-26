@@ -34,7 +34,8 @@ HOME = os.path.expanduser("~")
 _APP_DIR = os.path.dirname(os.path.abspath(globals().get('__file__') or 'hey_kali.py'))
 CODE_FILE, CMD_FILE = os.path.join(_APP_DIR, "last_code.txt"), os.path.join(_APP_DIR, "last_command.txt")
 
-vosk_model = Model(model_name="vosk-model-small-en-us-0.15")
+_LOCAL_VOSK = os.path.join(_APP_DIR, "vosk-model-small-en-us-0.15")
+vosk_model = Model(_LOCAL_VOSK) if os.path.isdir(_LOCAL_VOSK) else Model(model_name="vosk-model-small-en-us-0.15")
 wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
 fast_cmd_rec = KaldiRecognizer(
     vosk_model,

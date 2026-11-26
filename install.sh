@@ -59,5 +59,8 @@ UNIT
 
 systemctl --user daemon-reload
 systemctl --user enable --now hey-kali.service
+if command -v xfconf-query >/dev/null 2>&1; then
+  xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>k" -n -t string -s "touch /tmp/kali_stop_now" 2>/dev/null || xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>k" -s "touch /tmp/kali_stop_now" 2>/dev/null || true
+fi
 
 echo "[+] Hey Kali is 100% installed, running in the background, and ready! Say 'Hey Kali'..."

@@ -1307,7 +1307,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
         win_lines = subprocess.run(["wmctrl", "-lx"], env=win_env, capture_output=True, text=True).stdout.splitlines()
 
         aliases = {
-            "terminal": ("qterminal", "xfce4-terminal", "gnome-terminal", "konsole", "xterm", "gameronduty"),
+            "terminal": ("qterminal", "xfce4-terminal", "gnome-terminal", "konsole", "xterm"),
             "notepad": ("mousepad", "leafpad", "gedit"),
             "editor": ("mousepad", "code", "gedit"),
             "browser": ("firefox", "chromium", "chrome"),
