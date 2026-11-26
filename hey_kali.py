@@ -69,6 +69,7 @@ JARVIS_WAKE_LINES = [
 ]
 JARVIS_WAKE_PCMS = []
 _LAST_JARVIS_IDX = -1
+_PENDING_JARVIS_ACTION = None
 _ACTIVE_VOICE_IDX = 0
 _VOICE_SPEED = VOICE_PROFILES[0]["speed"]
 PIPER_MODEL = VOICE_PROFILES[0]["path"]
@@ -242,6 +243,12 @@ def instant_yes():
         pick = random.choice(choices)
         _LAST_JARVIS_IDX = pick
         wake_label, wake_pcm = JARVIS_WAKE_PCMS[pick]
+    if "terminal" in wake_label.lower() and "?" in wake_label:
+        globals()["_PENDING_JARVIS_ACTION"] = "terminal"
+    elif "firewall" in wake_label.lower() or "network" in wake_label.lower():
+        globals()["_PENDING_JARVIS_ACTION"] = "scan"
+    else:
+        globals()["_PENDING_JARVIS_ACTION"] = None
     print(f"Kali: {wake_label}", flush=True)
     if yes_out_stream is not None and wake_pcm:
         try:
@@ -578,6 +585,31 @@ def _split_chained_commands(raw_q):
     return [s]
 
 def handle_query(query, _chained=False):
+    pending_act = globals().get("_PENDING_JARVIS_ACTION")
+    q_chk = str(query).lower().strip(" .!?,")
+    if pending_act:
+        globals()["_PENDING_JARVIS_ACTION"] = None
+        if q_chk in ("yes", "yeah", "yep", "sure", "okay", "ok", "do it", "yes sir", "yeah do it", "go ahead"):
+            if pending_act == "hacker_mode":
+                speak("Initiating hacker mode right away, sir!")
+                handle_extra("hacker mode", speak, launch_gui, GUI_ENV if 'GUI_ENV' in globals() else os.environ.copy())
+            elif pending_act == "scan":
+                speak("Scanning your local network now, sir. Let us see who is lurking.")
+                handle_extra("scan my network", speak, launch_gui, GUI_ENV if 'GUI_ENV' in globals() else os.environ.copy())
+            else:
+                speak("Opening a terminal right away, sir. Try not to break the internet.")
+                open_any_app("terminal")
+            return
+        elif q_chk in ("no", "nah", "nope", "not now", "no thanks", "no sir", "cancel"):
+            speak("What then, sir?")
+            mic_stream.start_stream()
+            next_cmd = record_and_transcribe()
+            mic_stream.stop_stream()
+            if next_cmd:
+                print(f"You: {next_cmd}", flush=True)
+                handle_query(next_cmd)
+            return
+
     if not _chained:
         sub_cmds = _split_chained_commands(query)
         if len(sub_cmds) > 1:
@@ -741,6 +773,13 @@ def handle_query(query, _chained=False):
         choices = [p for p in pool if p != last_p] or pool
         pick = random.choice(choices)
         globals()["_LAST_JARVIS_PUNCH"] = pick
+        if "?" in pick:
+            if any(w in pick.lower() for w in ("hacking", "router", "terminal", "wire transfer")):
+                globals()["_PENDING_JARVIS_ACTION"] = "terminal"
+            elif "world" in pick.lower():
+                globals()["_PENDING_JARVIS_ACTION"] = "hacker_mode"
+            else:
+                globals()["_PENDING_JARVIS_ACTION"] = "terminal"
         return pick
 
     try:
@@ -786,7 +825,15 @@ def handle_query(query, _chained=False):
             if speak(full_ans):
                 return
         if is_jarvis:
-            speak(_jarvis_punchline(query, full_ans))
+            p_line = _jarvis_punchline(query, full_ans)
+            if not speak(p_line) and globals().get("_PENDING_JARVIS_ACTION"):
+                # Listen immediately for user's Yes / No reply without needing wake word
+                mic_stream.start_stream()
+                followup_q = record_and_transcribe()
+                mic_stream.stop_stream()
+                if followup_q:
+                    print(f"You (follow-up): {followup_q}", flush=True)
+                    handle_query(followup_q)
     except Exception as e:
         print(f"[Gemma error] {e}", flush=True)
         speak("I could not process that right now.")
