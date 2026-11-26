@@ -703,27 +703,49 @@ def handle_query(query, _chained=False):
         pass
 
     is_jarvis = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
-    if is_jarvis:
-        final_prompt = (
-            f"Facts: {live_facts[:320]}\nUser asked: {query}\n"
-            "Reply as JARVIS to sir in EXACTLY 2 sentences: Sentence 1 = quick real answer. Sentence 2 = a funny, cheeky joke or sarcastic punchline about it:"
-            if live_facts else
-            f"User asked: {query}\n"
-            "Reply as JARVIS to sir in EXACTLY 2 sentences: Sentence 1 = quick real answer. Sentence 2 = a funny, cheeky joke or sarcastic punchline about it:"
-        )
-    else:
-        final_prompt = (
-            f"Live search facts: {live_facts}\n\nQuestion: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
-            if live_facts else
-            f"Question: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
-        )
+    final_prompt = (
+        f"Live search facts: {live_facts}\n\nQuestion: {query}\nAnswer accurately in 1 short spoken sentence:"
+        if live_facts else
+        f"Question: {query}\nAnswer accurately in 1 short spoken sentence:"
+    )
+
+    def _jarvis_punchline(q_txt, ans_txt):
+        blob = (str(q_txt) + " " + str(ans_txt)).lower()
+        if any(w in blob for w in ("mrbeast", "mr beast", "billionaire", "millionaire", "rich", "money", "cash", "elon", "net worth", "wealth")):
+            pool = [
+                "Shall I ask him for a modest wire transfer, sir, or warm up the hacking tools?",
+                "With that kind of money, sir, you could finally upgrade my server rack!",
+                "I took the liberty of checking our bank balance, sir—we are still slightly behind him.",
+            ]
+        elif any(w in blob for w in ("girl", "lady", "ladies", "woman", "women", "date", "dating", "love", "crush", "pretty", "beautiful", "handsome")):
+            pool = [
+                "Just remember, sir: leave the Kali Linux terminal at home on the first date!",
+                "With your charm and my processing power, sir, she stands no chance.",
+                "Confidence is key, sir—and please do not mention your firewall configuration.",
+            ]
+        elif any(w in blob for w in ("hack", "hacking", "wifi", "password", "nmap", "exploit", "security", "kali", "ip", "network")):
+            pool = [
+                "Strictly for authorized educational testing, of course, sir. Wink.",
+                "I will keep the plausible deniability subroutines standing by, sir.",
+                "Try not to alert the entire neighborhood's router this time, sir.",
+            ]
+        else:
+            pool = [
+                "I must say, sir, you ask the most fascinating questions.",
+                "Another triumph for my superior British intellect, sir.",
+                "Do let me know if you need me to take over the world next, sir.",
+                "I calculated that in 0.002 seconds, sir—you are welcome.",
+                "Honestly, sir, what would you do without me?",
+            ]
+        last_p = globals().get("_LAST_JARVIS_PUNCH", "")
+        choices = [p for p in pool if p != last_p] or pool
+        pick = random.choice(choices)
+        globals()["_LAST_JARVIS_PUNCH"] = pick
+        return pick
 
     try:
         sys_prompt = (
-            "You are JARVIS, Tony Stark's hilarious, cheeky British AI wingman on Kali Linux. "
-            "Every single response MUST have 2 sentences: first the real answer to sir, second a funny joke, playful roast, or flirty wingman remark. "
-            "Example 1: User asked: Who is MrBeast? -> MrBeast is a billionaire YouTuber famous for giving away piles of cash, sir. Shall I hack his PayPal for a small donation, or just ask nicely? "
-            "Example 2: User asked: How do I talk to a pretty girl? -> Smile, stay confident, and keep it simple, sir. And for heaven's sake, do not bring up your Linux terminal on the first date!"
+            "You are JARVIS, Tony Stark's loyal British AI assistant. Address the user as sir and answer the question directly in 1 short spoken sentence. Never ask the user to provide facts."
             if is_jarvis else
             "You are Kali, a helpful voice assistant. Answer the user question directly and concisely in 1 or 2 short sentences. Never ask the user to provide facts."
         )
@@ -759,8 +781,12 @@ def handle_query(query, _chained=False):
                     sentence_buf = ""
                 if chunk.get("done"):
                     break
-        if sentence_buf.strip():
-            speak(sentence_buf.strip())
+        full_ans = sentence_buf.strip()
+        if full_ans:
+            if speak(full_ans):
+                return
+        if is_jarvis:
+            speak(_jarvis_punchline(query, full_ans))
     except Exception as e:
         print(f"[Gemma error] {e}", flush=True)
         speak("I could not process that right now.")
