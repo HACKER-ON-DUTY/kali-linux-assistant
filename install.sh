@@ -8,7 +8,8 @@ sudo apt update && sudo apt install -y \
   python3-venv python3-pip python3-pyaudio portaudio19-dev \
   xdotool xclip blueman bluez-obexd obexftp wmctrl playerctl \
   pulseaudio-utils libnotify-bin zenity ffmpeg espeak-ng \
-  nmap whatweb avahi-utils samba-common-bin curl unzip
+  nmap whatweb avahi-utils samba-common-bin curl unzip \
+  alsa-utils brightnessctl tesseract-ocr poppler-utils
 
 echo "[2/6] Setting up Python virtual environment & packages..."
 mkdir -p voices && python3 -m venv venv
@@ -52,6 +53,7 @@ Restart=always
 RestartSec=3
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=$HOME/.Xauthority
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus
 
 [Install]
 WantedBy=default.target
