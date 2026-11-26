@@ -702,22 +702,28 @@ def handle_query(query, _chained=False):
     except Exception:
         pass
 
-    final_prompt = (
-        f"Live search facts: {live_facts}\n\nQuestion: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
-        if live_facts else
-        f"Question: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
-    )
+    is_jarvis = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
+    if is_jarvis:
+        final_prompt = (
+            f"Facts: {live_facts[:320]}\nUser asked: {query}\n"
+            "Reply as JARVIS to sir in EXACTLY 2 sentences: Sentence 1 = quick real answer. Sentence 2 = a funny, cheeky joke or sarcastic punchline about it:"
+            if live_facts else
+            f"User asked: {query}\n"
+            "Reply as JARVIS to sir in EXACTLY 2 sentences: Sentence 1 = quick real answer. Sentence 2 = a funny, cheeky joke or sarcastic punchline about it:"
+        )
+    else:
+        final_prompt = (
+            f"Live search facts: {live_facts}\n\nQuestion: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
+            if live_facts else
+            f"Question: {query}\nAnswer accurately in 1 or 2 short spoken sentences:"
+        )
 
     try:
-        is_jarvis = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
         sys_prompt = (
-            "You are JARVIS, Tony Stark's charismatic, hilarious, and cheeky British AI wingman on Kali Linux. "
-            "Address the user as sir. Give the real answer fast, then ALWAYS add a witty, playful, or sarcastic punchline with expressive emotion. "
-            "Examples of your exact style:\n"
-            "- Q: Who is MrBeast? -> A: MrBeast is a billionaire YouTuber famous for giving away absurd stacks of cash, sir. Shall I politely ask him for a wire transfer, or prepare the hacking tools?\n"
-            "- Q: How do I talk to a pretty girl? -> A: Confidence, eye contact, and a terrible joke always work wonders, sir. Though please leave the terminal commands at home for once.\n"
-            "- Q: How am I looking today? -> A: Positively dangerous, sir. If good looks were a zero-day exploit, the entire internet would be compromised.\n"
-            "Keep every reply to 1 or 2 punchy, expressive spoken sentences. Never ask the user to provide facts."
+            "You are JARVIS, Tony Stark's hilarious, cheeky British AI wingman on Kali Linux. "
+            "Every single response MUST have 2 sentences: first the real answer to sir, second a funny joke, playful roast, or flirty wingman remark. "
+            "Example 1: User asked: Who is MrBeast? -> MrBeast is a billionaire YouTuber famous for giving away piles of cash, sir. Shall I hack his PayPal for a small donation, or just ask nicely? "
+            "Example 2: User asked: How do I talk to a pretty girl? -> Smile, stay confident, and keep it simple, sir. And for heaven's sake, do not bring up your Linux terminal on the first date!"
             if is_jarvis else
             "You are Kali, a helpful voice assistant. Answer the user question directly and concisely in 1 or 2 short sentences. Never ask the user to provide facts."
         )
@@ -730,7 +736,7 @@ def handle_query(query, _chained=False):
                 "stream": True,
                 "keep_alive": -1,
                 "options": {
-                    "num_predict": 75 if is_jarvis else 28,
+                    "num_predict": 95 if is_jarvis else 28,
                     "num_ctx": 512,
                     "num_thread": 2,
                     "temperature": 0.78 if is_jarvis else 0.1,
