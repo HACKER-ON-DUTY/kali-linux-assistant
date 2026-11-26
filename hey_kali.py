@@ -311,15 +311,24 @@ def speak(text, allow_interrupt=True):
         stop_rec.Reset()
         if os.path.exists("/tmp/kali_stop_now"):
             os.remove("/tmp/kali_stop_now")
-        while proc.poll() is None:
+        est_dur = (len(pcm_data) / (rate * 2.0)) if pcm_data else 2.5
+        t_end = time.time() + est_dur + 0.15
+        while proc.poll() is None or time.time() < t_end:
             if os.path.exists("/tmp/kali_stop_now"):
-                os.remove("/tmp/kali_stop_now")
+                try:
+                    os.remove("/tmp/kali_stop_now")
+                except Exception:
+                    pass
                 import signal
-                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except Exception:
+                    pass
+                subprocess.run(["pkill", "-9", "-x", "paplay"], stderr=subprocess.DEVNULL)
                 interrupted = True
                 print("Kali: [Stopped via hotkey — listening for new command]", flush=True)
                 break
-            time.sleep(0.05)
+            time.sleep(0.04)
         if not was_active:
             mic_stream.stop_stream()
     else:
