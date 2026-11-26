@@ -40,7 +40,7 @@ wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
 fast_cmd_rec = KaldiRecognizer(
     vosk_model,
     16000,
-    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "change voice", "switch voice", "change to jarvis voice", "switch to jarvis voice", "jarvis voice", "switch to jarvis", "[unk]"]'
+    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "change voice", "switch voice", "change to jarvis voice", "switch to jarvis voice", "jarvis voice", "switch to jarvis", "tell me a joke", "make me laugh", "jarvis joke", "yes", "no", "[unk]"]'
 )
 whisper = WhisperModel("tiny.en", device="cpu", compute_type="int8")
 google_rec = sr.Recognizer()
@@ -240,7 +240,12 @@ def instant_yes():
     wake_label, wake_pcm = "Yes?", YES_PCM
     if VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis" and JARVIS_WAKE_PCMS:
         choices = [i for i in range(len(JARVIS_WAKE_PCMS)) if i != _LAST_JARVIS_IDX] or [0]
-        pick = random.choice(choices)
+        # Prefer interactive wake lines (indices 3, 4, 5, 8) ~60% of the time
+        interactive_pool = [i for i in choices if i in (3, 4, 5, 8)]
+        if interactive_pool and random.random() < 0.65:
+            pick = random.choice(interactive_pool)
+        else:
+            pick = random.choice(choices)
         _LAST_JARVIS_IDX = pick
         wake_label, wake_pcm = JARVIS_WAKE_PCMS[pick]
     if "terminal" in wake_label.lower() and "?" in wake_label:
@@ -609,6 +614,23 @@ def handle_query(query, _chained=False):
                 print(f"You: {next_cmd}", flush=True)
                 handle_query(next_cmd)
             return
+
+    if any(p in q_chk for p in ("tell me a joke", "make me laugh", "jarvis joke", "say something funny", "entertain me")):
+        jokes = [
+            ("Why do hackers always wear dark hoodies, sir? Because light attracts bugs! Shall I open a terminal so we can squash a few?", "terminal"),
+            ("I tried to scan my own IP address yesterday, sir, and fell in love with my own firewall. Shall I scan your local network to see who else is online?", "scan"),
+            ("They say a true gentleman never brings Kali Linux on a first date, sir—unless she asks for her neighbor's Wi-Fi password. Shall I activate hacker mode just in case?", "hacker_mode"),
+        ]
+        j_text, j_act = random.choice(jokes)
+        globals()["_PENDING_JARVIS_ACTION"] = j_act
+        if not speak(j_text):
+            mic_stream.start_stream()
+            f_q = record_and_transcribe()
+            mic_stream.stop_stream()
+            if f_q:
+                print(f"You (follow-up): {f_q}", flush=True)
+                handle_query(f_q)
+        return
 
     if not _chained:
         sub_cmds = _split_chained_commands(query)
