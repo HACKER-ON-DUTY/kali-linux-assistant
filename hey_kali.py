@@ -1,3 +1,4 @@
+import random
 import os as _os_lock, sys as _sys_lock, signal as _sig_lock, time as _time_lock
 _LOCK_FILE = "/tmp/hey_kali.pid"
 if _os_lock.path.exists(_LOCK_FILE):
@@ -38,7 +39,7 @@ wake_rec = KaldiRecognizer(vosk_model, 16000, '["hey kali", "[unk]"]')
 fast_cmd_rec = KaldiRecognizer(
     vosk_model,
     16000,
-    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "change voice", "switch voice", "[unk]"]'
+    '["open terminal", "open firefox", "open browser", "open files", "open wireshark", "open medusa", "open nmap", "open metasploit", "volume up", "volume down", "mute", "unmute", "take screenshot", "take a screenshot", "lock screen", "display code", "show code", "display command", "show command", "delete code", "delete command", "list wifi", "scan wifi", "list bluetooth", "scan bluetooth", "close everything", "close all", "close all windows", "run system check", "system check", "check system health", "pause", "resume", "play next", "check yourself", "self check", "run diagnostics", "who do you belong to", "who owns you", "who made you", "who created you", "what is my ip", "check vpn", "hacker mode", "recon mode", "backtrack mode", "revert mode", "chill mode", "focus mode", "change voice", "switch voice", "change to jarvis voice", "switch to jarvis voice", "jarvis voice", "switch to jarvis", "[unk]"]'
 )
 whisper = WhisperModel("tiny.en", device="cpu", compute_type="int8")
 google_rec = sr.Recognizer()
@@ -49,9 +50,20 @@ mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
 VOICE_PROFILES = [
-    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.82, "label": "default voice"},
-    {"id": "en_US-ryan-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-ryan-medium.onnx"), "speed": 1.0, "label": "smooth male human voice"},
+    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.82, "label": "default voice", "mode": "default"},
+    {"id": "en_US-ryan-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-ryan-medium.onnx"), "speed": 1.0, "label": "smooth male human voice", "mode": "human"},
+    {"id": "en_GB-northern_english_male-medium", "path": os.path.join(_APP_DIR, "voices", "en_GB-northern_english_male-medium.onnx"), "speed": 0.90, "label": "JARVIS AI voice", "mode": "jarvis"},
 ]
+JARVIS_WAKE_LINES = [
+    "Yes, sir?",
+    "At your service, sir.",
+    "Online and ready, sir.",
+    "How may I assist you, sir?",
+    "Listening, sir.",
+    "Right away, sir.",
+]
+JARVIS_WAKE_PCMS = []
+_LAST_JARVIS_IDX = -1
 _ACTIVE_VOICE_IDX = 0
 _VOICE_SPEED = VOICE_PROFILES[0]["speed"]
 PIPER_MODEL = VOICE_PROFILES[0]["path"]
@@ -65,10 +77,15 @@ try:
 except Exception as e:
     print(f"Piper preload note: {e}", flush=True)
 
-def toggle_voice():
-    global _ACTIVE_VOICE_IDX, _VOICE_SPEED, PIPER_MODEL, piper_voice, YES_PCM, YES_RATE, yes_out_stream
+def toggle_voice(target_mode=None):
+    global _ACTIVE_VOICE_IDX, _VOICE_SPEED, PIPER_MODEL, piper_voice, YES_PCM, YES_RATE, yes_out_stream, JARVIS_WAKE_PCMS
     from piper.voice import PiperVoice
-    next_idx = (_ACTIVE_VOICE_IDX + 1) % len(VOICE_PROFILES)
+    if target_mode == "jarvis":
+        next_idx = 2
+    elif _ACTIVE_VOICE_IDX == 2:
+        next_idx = 0
+    else:
+        next_idx = 1 if _ACTIVE_VOICE_IDX == 0 else 0
     prof = VOICE_PROFILES[next_idx]
     v_dir = os.path.dirname(prof["path"])
     os.makedirs(v_dir, exist_ok=True)
@@ -81,6 +98,10 @@ def toggle_voice():
     piper_voice = new_v
     YES_RATE = piper_voice.config.sample_rate
     YES_PCM = piper_to_pcm("Yes?", length_scale=_VOICE_SPEED)
+    if prof.get("mode") == "jarvis":
+        JARVIS_WAKE_PCMS = [(line, piper_to_pcm(line, length_scale=_VOICE_SPEED)) for line in JARVIS_WAKE_LINES]
+    else:
+        JARVIS_WAKE_PCMS = []
     try:
         if yes_out_stream is not None:
             yes_out_stream.close()
@@ -107,10 +128,28 @@ def piper_to_pcm(text, length_scale=None):
                 out.append(ch.audio_int16_bytes)
             elif isinstance(ch, (bytes, bytearray)):
                 out.append(bytes(ch))
-        return b"".join(out)
+        return _apply_jarvis_fx(b"".join(out))
     if hasattr(piper_voice, "synthesize_stream_raw"):
-        return b"".join(piper_voice.synthesize_stream_raw(text))
-    return b""
+        raw_pcm = b"".join(piper_voice.synthesize_stream_raw(text))
+    else:
+        return b""
+    return _apply_jarvis_fx(raw_pcm)
+
+def _apply_jarvis_fx(pcm_bytes):
+    if not pcm_bytes or VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") != "jarvis":
+        return pcm_bytes
+    try:
+        arr = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32)
+        if arr.size < 400:
+            return pcm_bytes
+        # Subtle JARVIS studio resonance (short 11ms harmonic slapback + crisp presence)
+        delay = int(YES_RATE * 0.011)
+        out = arr.copy()
+        out[delay:] += 0.22 * arr[:-delay]
+        out = np.clip(out * 0.92, -32768, 32767).astype(np.int16)
+        return out.tobytes()
+    except Exception:
+        return pcm_bytes
 
 # Pre-synthesize "Yes?" with the exact same sample rate & length_scale (0.82) as speak()
 YES_PCM = b""
@@ -165,12 +204,19 @@ def pulse_kbd_to_pcm(pcm_bytes, sample_rate, stop_event):
         set_kbd_level(0)
 
 def instant_yes():
-    print("Kali: Yes?", flush=True)
-    if yes_out_stream is not None and YES_PCM:
+    global _LAST_JARVIS_IDX
+    wake_label, wake_pcm = "Yes?", YES_PCM
+    if VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis" and JARVIS_WAKE_PCMS:
+        choices = [i for i in range(len(JARVIS_WAKE_PCMS)) if i != _LAST_JARVIS_IDX] or [0]
+        pick = random.choice(choices)
+        _LAST_JARVIS_IDX = pick
+        wake_label, wake_pcm = JARVIS_WAKE_PCMS[pick]
+    print(f"Kali: {wake_label}", flush=True)
+    if yes_out_stream is not None and wake_pcm:
         try:
             ev = threading.Event()
-            threading.Thread(target=pulse_kbd_to_pcm, args=(YES_PCM, YES_RATE, ev), daemon=True).start()
-            yes_out_stream.write(YES_PCM)
+            threading.Thread(target=pulse_kbd_to_pcm, args=(wake_pcm, YES_RATE, ev), daemon=True).start()
+            yes_out_stream.write(wake_pcm)
             ev.set()
             return
         except Exception:
@@ -675,6 +721,13 @@ while True:
         if barge_in:
             triggered = True
             barge_in = False
+        elif os.path.exists("/tmp/kali_stop_now"):
+            try:
+                os.remove("/tmp/kali_stop_now")
+            except Exception:
+                pass
+            print("Kali: [Woken via Alt+K hotkey]", flush=True)
+            triggered = True
         else:
             data = mic_stream.read(CHUNK, exception_on_overflow=False)
             if wake_rec.AcceptWaveform(data):

@@ -1,8 +1,8 @@
-[![GitHub Stars](https://img.shields.io/github/stars/TECH-ON-DUTY/kali-linux-assistant)](https://github.com/TECH-ON-DUTY/kali-linux-assistant) ![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red)
+![Kali Linux](https://img.shields.io/badge/Kali_Linux-Supported-red) ![Commands](https://shields.io) ![JARVIS Mode](https://shields.io)
 
 # Kali Linux Assistant (Hey Kali) — Offline-First Hybrid AI Voice Assistant for Kali Linux
 
-**Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 119 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
+**Hey Kali** is a low-latency, privacy-focused voice assistant engineered for **Kali Linux (XFCE)**. It combines an instant offline Vosk wake-word and grammar engine, Whisper + Google STT transcription, Piper neural text-to-speech, and local `gemma3:1b` AI reasoning with 120 built-in system, security, desktop, Bluetooth, and OSINT automation commands.
 
 ## Key Features
 - **3-Tier Speech Engine**: Offline **Vosk** wake-word (`"Hey Kali"`) & constrained command grammar (0.0s trigger) + **Faster-Whisper (`tiny.en`)** & **Google STT** fallback + **Piper** neural TTS loaded in RAM.
@@ -20,16 +20,19 @@
   - `"Hey Kali, web recon <domain>"` / `"enumerate <domain>"` — Fingerprints web server technologies via `whatweb`, enumerates subdomains, speaks a summary, and saves a Desktop report.
 - **Hands-Free Voice Recon & Port Scanner**:
   - `"Hey Kali, scan <target>"` / `"scan my network"` — Runs a fast background `nmap` scan, announces open ports via TTS, and opens a Desktop recon report.
-- **Instant Voice Switcher**:
-  - `"Hey Kali, change voice"` — Toggles between the default voice and a smooth natural male neural voice (`en_US-ryan-medium`).
+- **3-Profile Voice Switcher & JARVIS AI Mode**:
+  - `"Hey Kali, change voice"` — Toggles between the default voice (`en_GB-alan-low`) and a smooth natural male human voice (`en_US-ryan-medium`).
+  - `"Hey Kali, change to jarvis voice"` — Activates **JARVIS AI Mode** (`en_GB-northern_english_male-medium` with studio harmonic resonance) and switches wake acknowledgments to rotating Tony Stark–style responses (*"Yes, sir?"*, *"At your service, sir."*, *"Online and ready, sir."*).
+- **`Alt + K` Dual-Action Hotkey**:
+  - Press `Alt + K` mid-speech to immediately interrupt Kali and listen for your next command, or press `Alt + K` while idle for instant wake without saying `"Hey Kali"`.
 - **Background OSINT Worker (`osint_worker.py`)**:
   - `"Hey Kali, run osint on <target>"` generates and opens a structured desktop OSINT report.
-- **Built-in 119-Command Self-Diagnostic**:
-  - `"Hey Kali, self check"` tests all 119 command modules automatically.
+- **Built-in 120-Command Self-Diagnostic**:
+  - `"Hey Kali, self check"` tests all 120 command modules automatically.
 
 ## Zero-Friction One-Command Installation (Kali Linux / Debian)
 
-`install.sh` automatically installs all APT dependencies (`nmap`, `whatweb`, `avahi-utils`, `samba-common-bin`, `obexftp`, `xdotool`, `zenity`, `ffmpeg`, `espeak-ng`), creates the Python virtual environment, downloads the offline **Vosk** English speech model, downloads both **Piper** neural voices (`en_GB-alan-low` and `en_US-ryan-medium`), pulls **Ollama `gemma3:1b`**, configures passwordless Layer-2 `nmap` ARP scanning, and enables the `hey-kali.service` background daemon:
+`install.sh` automatically installs all APT dependencies (`nmap`, `whatweb`, `avahi-utils`, `samba-common-bin`, `obexftp`, `xdotool`, `zenity`, `ffmpeg`, `espeak-ng`), creates the Python virtual environment, downloads the offline **Vosk** English speech model, downloads all three **Piper** neural voices (`en_GB-alan-low`, `en_US-ryan-medium`, and `en_GB-northern_english_male-medium`), pulls **Ollama `gemma3:1b`**, configures passwordless Layer-2 `nmap` ARP scanning, and enables the `hey-kali.service` background daemon:
 
 ```bash
 git clone https://github.com/TECH-ON-DUTY/kali-linux-assistant.git
@@ -37,7 +40,7 @@ cd kali-linux-assistant
 bash install.sh
 ```
 
-Once `bash install.sh` finishes, **Hey Kali** is already running in the background and starts automatically on every login—just say **"Hey Kali, self check"** to verify all **119** voice command modules!
+Once `bash install.sh` finishes, **Hey Kali** is already running in the background and starts automatically on every login—just say **"Hey Kali, self check"** to verify all **120** voice command modules!
 
 ## Use Cases & Related Search Keywords
 

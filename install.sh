@@ -24,7 +24,7 @@ if [ ! -d "vosk-model-small-en-us-0.15" ] && [ ! -d "model" ]; then
 fi
 
 echo "[4/6] Downloading Piper neural voices (Default + Smooth Male Human Voice)..."
-./venv/bin/python3 -m piper.download_voices --download-dir voices en_GB-alan-low en_US-ryan-medium
+./venv/bin/python3 -m piper.download_voices --download-dir voices en_GB-alan-low en_US-ryan-medium en_GB-northern_english_male-medium
 
 echo "[5/6] Configuring local Ollama AI (gemma3:1b) & passwordless ARP recon..."
 if ! command -v ollama >/dev/null 2>&1; then

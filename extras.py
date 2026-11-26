@@ -943,7 +943,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             "run osint on Elon Musk", "osint Elon Musk", "investigate Elon Musk",
             "connect to gamer on bluetooth", "connect to first bluetooth device", "write hello world", "hacker mode", "revert mode", "send demo_test to first bluetooth",
             "web recon example.com", "enumerate example.com", "fingerprint example.com",
-            "scan scanme.nmap.org", "scan my network", "change voice"
+            "scan scanme.nmap.org", "scan my network", "change voice", "change to jarvis voice"
         ]
 
         core_cmds_15 = [
@@ -953,6 +953,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
             "create a folder demo_dir", "move demo_test to desktop", "run whoami"
         ]
 
+        total_cmds = len(all_cmds) if "all_cmds" in locals() else 120
         passed_cnt = 0
         failures = []
 
@@ -1044,8 +1045,8 @@ def handle_extra(query, speak, launch_gui, gui_env):
 
         out_f = f"{os.path.dirname(os.path.abspath(__file__))}/last_code.txt"
         report_lines = [
-            "=== HEY KALI 119-COMMAND SELF-DIAGNOSTIC REPORT ===",
-            f"Result: {passed_cnt}/119 PASSED | {len(failures)} FAILED",
+            f"=== HEY KALI {total_cmds}-COMMAND SELF-DIAGNOSTIC REPORT ===",
+            f"Result: {passed_cnt}/{total_cmds} PASSED | {len(failures)} FAILED",
             "=" * 52,
             ""
         ]
@@ -1053,18 +1054,18 @@ def handle_extra(query, speak, launch_gui, gui_env):
             report_lines.append("Failed Commands:")
             report_lines.extend(failures)
         else:
-            report_lines.append("All 119 voice command modules executed cleanly with 0 errors!")
+            report_lines.append(f"All {total_cmds} voice command modules executed cleanly with 0 errors!")
 
         open(out_f, "w", encoding="utf-8").write("\n".join(report_lines) + "\n")
 
         if failures:
             failed_names = ", ".join(f.split("] ", 1).pop(-1).split(":", 1).pop(0) for f in failures[:4])
-            speak(f"Self check complete. {passed_cnt} of 119 passed, and {len(failures)} failed: {failed_names}. Full report shown on screen.")
+            speak(f"Self check complete. {passed_cnt} of {total_cmds} passed, and {len(failures)} failed: {failed_names}. Full report shown on screen.")
         else:
-            speak("Self check complete. All 119 commands passed with zero errors.")
+            speak(f"Self check complete. All {total_cmds} commands passed with zero errors.")
 
         if shutil.which("zenity"):
-            launch_gui(["zenity", "--text-info", "--title=Hey Kali Self-Check (113 Commands)", f"--filename={out_f}", "--width=740", "--height=440"])
+            launch_gui(["zenity", "--text-info", f"--title=Hey Kali Self-Check ({total_cmds} Commands)", f"--filename={out_f}", "--width=740", "--height=440"])
         return True
 
     # 0Z. Priority Media Controls (Pause, Resume, Play Next, Play Previous)
@@ -2920,7 +2921,7 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 if _pr.endswith("backdrop-cycle-enable"):
                     subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "true"], env=_rt_env, capture_output=True)
                 elif _pr.endswith(("last-image", "image-path")):
-                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", "/usr/share/backgrounds/kali-16x9/default"], env=_rt_env, capture_output=True)
+                    subprocess.run(["xfconf-query", "-c", "xfce4-desktop", "-p", _pr, "-s", next((os.path.join(HOME, "desktop background", f) for f in sorted(os.listdir(os.path.join(HOME, "desktop background"))) if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))), "/usr/share/backgrounds/kali-16x9/default") if os.path.isdir(os.path.join(HOME, "desktop background")) else "/usr/share/backgrounds/kali-16x9/default"], env=_rt_env, capture_output=True)
             subprocess.run(["xfdesktop", "--reload"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "Kali-Dark"], env=_rt_env, capture_output=True)
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Flat-Remix-Blue-Dark"], env=_rt_env, capture_output=True)
@@ -3189,6 +3190,23 @@ def handle_extra(query, speak, launch_gui, gui_env):
                 print(f"[Recon Scan Error] {_re_err}", flush=True)
                 speak(f"Sorry, the port scan for {tgt} failed or timed out.")
         threading.Thread(target=_bg_recon, args=(target,), daemon=True).start()
+        return True
+
+    # JARVIS Voice Mode ("change to jarvis voice", "jarvis voice", "switch to jarvis")
+    if q in ("change to jarvis voice", "switch to jarvis voice", "change jarvis voice", "jarvis voice", "switch to jarvis", "activate jarvis voice", "use jarvis voice"):
+        if globals().get("_RUNNING_SELF_CHECK"):
+            return True
+        import sys as _sys_v
+        _main_mod = _sys_v.modules.get("__main__")
+        if _main_mod and hasattr(_main_mod, "toggle_voice"):
+            try:
+                _main_mod.toggle_voice(target_mode="jarvis")
+                speak("JARVIS voice protocol activated. At your service, sir.")
+            except Exception as _ve:
+                print(f"[JARVIS voice error] {_ve}", flush=True)
+                speak("Sorry, I could not load the JARVIS voice model right now.")
+        else:
+            speak("JARVIS voice is ready when running Hey Kali directly.")
         return True
 
     # Voice Toggle ("change voice", "switch voice")
