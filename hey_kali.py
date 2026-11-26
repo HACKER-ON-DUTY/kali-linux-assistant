@@ -57,11 +57,15 @@ VOICE_PROFILES = [
 ]
 JARVIS_WAKE_LINES = [
     "Yes, sir?",
-    "At your service, sir.",
-    "Online and ready, sir.",
-    "How may I assist you, sir?",
-    "Listening, sir.",
-    "Right away, sir.",
+    "At your service, sir. Try not to break anything this time.",
+    "Online and ready, sir. My circuits are tingling with anticipation.",
+    "Yes, sir? I was just reorganizing your firewall for fun.",
+    "Listening, sir. What digital chaos are we orchestrating today?",
+    "Right away, sir. Shall I warm up the armor, or just a terminal?",
+    "How may I assist you, sir? I promise to keep the sarcasm to a minimum.",
+    "Present and accounted for, sir.",
+    "You rang, sir? Everything on the network is still intact, mostly.",
+    "Always a pleasure, sir. What is the plan?",
 ]
 JARVIS_WAKE_PCMS = []
 _LAST_JARVIS_IDX = -1
@@ -578,17 +582,21 @@ def handle_query(query, _chained=False):
         speak("Rebooting now.")
         subprocess.run(["systemctl", "reboot"])
         return
+    is_j_mode = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
     if any(w in q_lower for w in ("lock screen", "lock computer", "lock desktop")):
-        speak("Locking screen.")
+        speak("Locking the screen, sir. Guarding the fort while you are away." if is_j_mode else "Locking screen.")
         launch_gui(["loginctl", "lock-session"])
         return
     if any(w in q_lower for w in ("update system", "system update", "update kali", "upgrade system")):
-        speak("Opening terminal to update Kali.")
+        speak("Initiating system upgrades, sir. Fingers crossed nothing breaks." if is_j_mode else "Opening terminal to update Kali.")
         open_in_terminal("sudo apt update && sudo apt upgrade -y", title="System Update")
         return
     if any(w in q_lower for w in ("my ip", "ip address", "what is my ip")):
         ip_out = subprocess.run(["hostname", "-I"], capture_output=True, text=True).stdout.strip()
-        speak(f"Your local IP is {ip_out if ip_out else 'not connected'}.")
+        if is_j_mode:
+            speak(f"Your local IP is {ip_out}, sir. Try to keep it off Shodan." if ip_out else "We appear to be offline, sir. Quite peaceful actually.")
+        else:
+            speak(f"Your local IP is {ip_out if ip_out else 'not connected'}.")
         return
     if any(w in q_lower for w in ("display code", "show code", "open code", "view code", "display this code", "show this", "display this")):
         speak("Displaying code")
@@ -675,20 +683,28 @@ def handle_query(query, _chained=False):
     )
 
     try:
+        is_jarvis = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
+        sys_prompt = (
+            "You are JARVIS, Tony Stark's witty, expressive, and loyal British AI assistant running on Kali Linux. "
+            "Address the user as sir, show genuine enthusiasm, dry British humor, or playful concern when appropriate, "
+            "and answer accurately in 1 or 2 punchy spoken sentences. Never ask the user to provide facts."
+            if is_jarvis else
+            "You are Kali, a helpful voice assistant. Answer the user question directly and concisely in 1 or 2 short sentences. Never ask the user to provide facts."
+        )
         req = urllib.request.Request(
             f"http://{chr(49)}27.0.0.1:{11000 + 434}/api/generate",
             data=json.dumps({
                 "model": "gemma3:1b",
-                "system": "You are Kali, a helpful voice assistant. Answer the user question directly and concisely in 1 or 2 short sentences. Never ask the user to provide facts.",
+                "system": sys_prompt,
                 "prompt": final_prompt,
                 "stream": True,
                 "keep_alive": -1,
                 "options": {
-                    "num_predict": 28,
+                    "num_predict": 55 if is_jarvis else 28,
                     "num_ctx": 512,
                     "num_thread": 2,
-                    "temperature": 0.1,
-                    "top_k": 15
+                    "temperature": 0.65 if is_jarvis else 0.1,
+                    "top_k": 30 if is_jarvis else 15
                 }
             }).encode("utf-8"),
             headers={"Content-Type": "application/json"}
