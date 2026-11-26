@@ -43,11 +43,12 @@ mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/hey-kali.service" <<UNIT
 [Unit]
 Description=Hey Kali Offline-First AI Voice Assistant
-After=graphical-session.target pulseaudio.service pipewire.service
+After=sound.target pulseaudio.service pipewire.service graphical-session.target
 
 [Service]
 Type=simple
 WorkingDirectory=$APP_DIR
+ExecStartPre=/bin/sleep 5
 ExecStart=$APP_DIR/venv/bin/python3 $APP_DIR/hey_kali.py
 Restart=always
 RestartSec=3
