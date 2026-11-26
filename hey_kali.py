@@ -115,16 +115,35 @@ def toggle_voice(target_mode=None):
         yes_out_stream = None
     return prof["label"]
 
+def _detect_jarvis_emotion(text, base_speed):
+    t = str(text).lower()
+    # Excited / Hyped
+    if "!" in text or any(w in t for w in ("brilliant", "dangerous", "magnificent", "tingling", "awesome", "activated")):
+        return base_speed * 0.91, 0.88, 0.92, 1.03
+    # Dramatic / Serious Warning
+    if any(w in t for w in ("warning", "offline", "careful", "alert", "failed", "error", "breach")):
+        return base_speed * 1.07, 0.65, 0.75, 0.97
+    # Playful / Cheeky / Questioning
+    if "?" in text or any(w in t for w in ("sir", "girl", "lady", "cash", "billionaire", "exploit", "sarcasm", "chaos", "joke")):
+        return base_speed * 0.96, 0.86, 0.90, 1.015
+    return base_speed, 0.78, 0.85, 1.0
+
 def piper_to_pcm(text, length_scale=None):
     if length_scale is None:
         length_scale = _VOICE_SPEED
     if piper_voice is None:
         return b""
+    is_j = VOICE_PROFILES[_ACTIVE_VOICE_IDX].get("mode") == "jarvis"
+    eff_speed, n_scale, n_w, pitch_shift = _detect_jarvis_emotion(text, length_scale) if is_j else (length_scale, 0.667, 0.8, 1.0)
+    globals()["_JARVIS_PITCH_HINT"] = pitch_shift
     # Support both newer piper-tts (synthesize -> AudioChunk.audio_int16_bytes) and older versions
     if hasattr(piper_voice, "synthesize"):
         try:
             from piper.config import SynthesisConfig
-            chunks = piper_voice.synthesize(text, syn_config=SynthesisConfig(length_scale=length_scale))
+            chunks = piper_voice.synthesize(
+                text,
+                syn_config=SynthesisConfig(length_scale=eff_speed, noise_scale=n_scale, noise_w=n_w)
+            )
         except Exception:
             chunks = piper_voice.synthesize(text)
         out = []
@@ -147,7 +166,14 @@ def _apply_jarvis_fx(pcm_bytes):
         arr = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32)
         if arr.size < 400:
             return pcm_bytes
-        # Subtle JARVIS studio resonance (short 11ms harmonic slapback + crisp presence)
+        # Dynamic vocal pitch & studio resonance for emotional expressiveness
+        _, _, _, p_shift = _detect_jarvis_emotion("", _VOICE_SPEED)
+        # Re-read last spoken emotion pitch via global hint if set
+        p_shift = globals().get("_JARVIS_PITCH_HINT", 1.0)
+        if abs(p_shift - 1.0) > 0.002 and arr.size > 100:
+            x_old = np.arange(arr.size, dtype=np.float32)
+            x_new = np.arange(0, arr.size - 1, p_shift, dtype=np.float32)
+            arr = np.interp(x_new, x_old, arr)
         delay = int(YES_RATE * 0.011)
         out = arr.copy()
         out[delay:] += 0.22 * arr[:-delay]
