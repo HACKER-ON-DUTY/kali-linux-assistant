@@ -51,7 +51,7 @@ mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
 VOICE_PROFILES = [
-    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.82, "label": "default voice", "mode": "default"},
+    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.72, "label": "default voice", "mode": "default"},
     {"id": "en_US-ryan-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-ryan-medium.onnx"), "speed": 1.0, "label": "smooth male human voice", "mode": "human"},
     {"id": "en_GB-northern_english_male-medium", "path": os.path.join(_APP_DIR, "voices", "en_GB-northern_english_male-medium.onnx"), "speed": 0.90, "label": "JARVIS AI voice", "mode": "jarvis"},
 ]
