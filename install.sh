@@ -62,10 +62,27 @@ UNIT
 
 systemctl --user daemon-reload
 systemctl --user enable --now hey-kali.service
+# Auto-register Alt+K hotkey across XFCE, GNOME, and KDE Plasma
 if command -v xfconf-query >/dev/null 2>&1; then
   xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>k" -n -t string -s "touch /tmp/kali_stop_now" 2>/dev/null || xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>k" -s "touch /tmp/kali_stop_now" 2>/dev/null || true
   xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>K" -n -t string -s "touch /tmp/kali_stop_now" 2>/dev/null || xfconf-query -c xfce4-keyboard-shortcuts -p "/commands/custom/<Alt>K" -s "touch /tmp/kali_stop_now" 2>/dev/null || true
   DISPLAY=:0 nohup xfsettingsd --replace >/dev/null 2>&1 &
 fi
+if command -v gsettings >/dev/null 2>&1 && gsettings list-schemas 2>/dev/null | grep -q "org.gnome.settings-daemon.plugins.media-keys"; then
+  _KB_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/hey-kali/"
+  gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['${_KB_PATH}']" 2>/dev/null || true
+  gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${_KB_PATH}" name "Hey Kali Wake/Stop" 2>/dev/null || true
+  gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${_KB_PATH}" command "touch /tmp/kali_stop_now" 2>/dev/null || true
+  gsettings set "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:${_KB_PATH}" binding "<Alt>k" 2>/dev/null || true
+fi
+for _kw in kwriteconfig6 kwriteconfig5; do
+  if command -v "$_kw" >/dev/null 2>&1; then
+    "$_kw" --file kglobalshortcutsrc --group "hey-kali.desktop" --key "_k_friendly_name" "Hey Kali Wake/Stop" 2>/dev/null || true
+    "$_kw" --file kglobalshortcutsrc --group "hey-kali.desktop" --key "Launch" "Alt+K,none,Hey Kali Wake/Stop" 2>/dev/null || true
+    mkdir -p "$HOME/.local/share/applications"
+    printf "[Desktop Entry]\nName=Hey Kali Wake/Stop\nExec=touch /tmp/kali_stop_now\nType=Application\nNoDisplay=true\n" > "$HOME/.local/share/applications/hey-kali.desktop"
+    break
+  fi
+done
 
 echo "[+] Hey Kali is 100% installed, running in the background, and ready! Say 'Hey Kali'..."
