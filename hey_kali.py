@@ -51,7 +51,7 @@ mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
 
 stop_rec = KaldiRecognizer(vosk_model, 16000, '["stop", "hey kali", "kali", "[unk]"]')
 VOICE_PROFILES = [
-    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.72, "label": "default voice", "mode": "default"},
+    {"id": "en_GB-alan-low", "path": os.path.join(_APP_DIR, "voices", "en_GB-alan-low.onnx"), "speed": 0.65, "label": "default voice", "mode": "default"},
     {"id": "en_US-ryan-medium", "path": os.path.join(_APP_DIR, "voices", "en_US-ryan-medium.onnx"), "speed": 1.0, "label": "smooth male human voice", "mode": "human"},
     {"id": "en_GB-northern_english_male-medium", "path": os.path.join(_APP_DIR, "voices", "en_GB-northern_english_male-medium.onnx"), "speed": 0.90, "label": "JARVIS AI voice", "mode": "jarvis"},
 ]
@@ -141,10 +141,12 @@ def piper_to_pcm(text, length_scale=None):
     if hasattr(piper_voice, "synthesize"):
         try:
             from piper.config import SynthesisConfig
-            chunks = piper_voice.synthesize(
-                text,
-                syn_config=SynthesisConfig(length_scale=eff_speed, noise_scale=n_scale, noise_w=n_w)
+            cfg = (
+                SynthesisConfig(length_scale=eff_speed, noise_scale=n_scale, noise_w=n_w)
+                if is_j else
+                SynthesisConfig(length_scale=eff_speed)
             )
+            chunks = piper_voice.synthesize(text, syn_config=cfg)
         except Exception:
             chunks = piper_voice.synthesize(text)
         out = []
@@ -284,7 +286,7 @@ def speak(text, allow_interrupt=True):
     if pcm_data and (shutil.which("paplay") or shutil.which("aplay")):
         rate = piper_voice.config.sample_rate
         play_cmd = (
-            ["paplay", "--raw", f"--rate={rate}", "--format=s16le", "--channels=1"]
+            ["paplay", "--raw", f"--rate={rate}", "--format=s16le", "--channels=1", "--latency-msec=50"]
             if shutil.which("paplay")
             else ["aplay", "-q", "-r", str(rate), "-f", "S16_LE", "-t", "raw", "-"]
         )
